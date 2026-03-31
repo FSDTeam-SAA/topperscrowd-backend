@@ -1,6 +1,6 @@
 import { ZodSchema, ZodError } from "zod";
 import { RequestHandler, NextFunction, Request, Response } from "express";
-import CustomError from "../errors/customError";
+import AppError from "../errors/AppError";
 
 export const validateRequest = (schema: ZodSchema): RequestHandler => {
   return async (req: Request, _res: Response, next: NextFunction) => {
@@ -17,7 +17,7 @@ export const validateRequest = (schema: ZodSchema): RequestHandler => {
       // If BOTH body and image are missing
       if (!hasBody && !hasFile) {
         return next(
-          new CustomError(400, "At least one field should be updated", [
+          new AppError("At least one field should be updated", 400, [
             {
               field: "request",
               message: "Provide at least one field or image to update",
@@ -43,7 +43,7 @@ export const validateRequest = (schema: ZodSchema): RequestHandler => {
           field: issue.path[issue.path.length - 1] ?? "unknown",
           message: issue.message,
         }));
-        return next(new CustomError(400, "Validation failed", errors));
+        return next(new AppError("Validation failed", 400, errors));
       }
       next(err);
     }

@@ -1,10 +1,9 @@
 import mongoose from "mongoose";
-import CustomError from "../../errors/customError";
+import AppError from "../../errors/AppError";
 import { deleteFromCloudinary, uploadToCloudinary } from "../../utils/cloudinary";
 import { paginationHelper } from "../../utils/pafinationHelper";
 import { IBookCategory, IBookCategoryUpdate } from "./bookCategory.interface";
 import BookCategory from "./bookCategory.model";
-import AppError from "../../errors/AppError";
 
 //create a new book category
 const createBookCategory = async (req: any) => {
@@ -13,12 +12,12 @@ const createBookCategory = async (req: any) => {
   const image = req.file;
 
   const result = await BookCategory.create(payload);
-  if (!result) throw new CustomError(400, "Failed to create book category");
+  if (!result) throw new AppError("Failed to create book category", 400);
 
   //if image is provided, upload it to cloudinary
   if (image) {
     const imageAsset = await uploadToCloudinary(image.path, "bookCategory");
-    if (!imageAsset) throw new CustomError(400, "Failed to upload image");
+    if (!imageAsset) throw new AppError("Failed to upload image", 400);
 
     result.image = {
       public_id: imageAsset.public_id,
@@ -60,28 +59,49 @@ const getAllBookCategories = async (req: any) => {
   if (status && status !== "all") {
     // validate status can be "active" or "inactive"  
     if (status !== "active" && status !== "inactive" && status !== "all") {
-      throw new CustomError(400, "Invalid status. Must be 'active' or 'inactive'");
+      throw new AppError("Invalid status. Must be 'active', 'inactive', or 'all'", 400);
     }
     filter.isActive = status == "active" ? true : false;
   }
 
   // Date range filter
   if (from || to) {
+    const isValidDate = (date: string) => {
+      const d = new Date(date);
+      return !isNaN(d.getTime());
+    };
 
-    //validate from and to are valid dates
-    if (from && isNaN(Date.parse(from))) {
-      throw new CustomError(400, "Invalid 'from' date");
+    if (from && !isValidDate(from)) {
+      throw new AppError(
+        "Invalid 'from' date. Format must be YYYY-MM-DD or ISO (e.g., 2024-01-01)",
+        400
+      );
     }
-    if (to && isNaN(Date.parse(to))) {
-      throw new CustomError(400, "Invalid 'to' date");
+
+    if (to && !isValidDate(to)) {
+      throw new AppError(
+        "Invalid 'to' date. Format must be YYYY-MM-DD or ISO (e.g., 2024-01-01)",
+        400
+      );
+    }
+
+    // Optional: prevent wrong range
+    if (from && to && new Date(from) > new Date(to)) {
+      throw new AppError("'from' date cannot be greater than 'to' date", 400);
     }
 
     filter.createdAt = {};
+
     if (from) {
-      filter.createdAt.$gte = new Date(from);
+      const fromDate = new Date(from);
+      fromDate.setHours(0, 0, 0, 0);
+      filter.createdAt.$gte = fromDate;
     }
+
     if (to) {
-      filter.createdAt.$lte = new Date(to);
+      const toDate = new Date(to);
+      toDate.setHours(23, 59, 59, 999); // include full day
+      filter.createdAt.$lte = toDate;
     }
   }
 
@@ -109,10 +129,10 @@ const getAllBookCategories = async (req: any) => {
 const getBookCategoryById = async (req: any) => {
   const { bookcategoryId } = req.params;
 
-  if (!mongoose.isValidObjectId(bookcategoryId)) throw new CustomError(400, "Invalid book category id");
+  if (!mongoose.isValidObjectId(bookcategoryId)) throw new AppError("Invalid book category id", 400);
 
   const result = await BookCategory.findById(bookcategoryId);
-  if (!result) throw new CustomError(404, "Book category not found");
+  if (!result) throw new AppError("Book category not found", 404);
 
   return result;
 };
@@ -124,7 +144,7 @@ const updateBookCategoryById = async (req: any) => {
   const image = req.file;
 
   const result = await BookCategory.findByIdAndUpdate(bookcategoryId, payload, { new: true });
-  if (!result) throw new CustomError(404, "Book category not found");
+  if (!result) throw new AppError("Book category not found", 404);
 
   //if image is provided, upload it to cloudinary
   if (image) {
@@ -134,7 +154,7 @@ const updateBookCategoryById = async (req: any) => {
 
     //upload new image to cloudinary
     const imageAsset = await uploadToCloudinary(image.path, "bookCategory");
-    if (!imageAsset) throw new CustomError(400, "Failed to upload image");
+    if (!imageAsset) throw new AppError("Failed to upload image", 400);
 
     result.image = {
       public_id: imageAsset.public_id,
@@ -151,11 +171,11 @@ const updateBookCategoryById = async (req: any) => {
 const deleteBookCategoryById = async (req: any) => {
   const { bookcategoryId } = req.params;
 
-  if (!mongoose.Types.ObjectId.isValid(bookcategoryId)) throw new CustomError(400, "Invalid book category ID");
+  if (!mongoose.Types.ObjectId.isValid(bookcategoryId)) throw new AppError("Invalid book category ID", 400);
 
 
   const result = await BookCategory.findByIdAndDelete(bookcategoryId);
-  if (!result) throw new CustomError(404, "Book category not found");
+  if (!result) throw new AppError("Book category not found", 404);
 
   if (result.image?.public_id) await deleteFromCloudinary(result.image.public_id);
 };

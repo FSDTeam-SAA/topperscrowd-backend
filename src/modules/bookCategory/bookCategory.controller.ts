@@ -19,7 +19,7 @@ const createBookCategory = catchAsync(async (req, res) => {
 //get all book categories
 const getAllBookCategories = catchAsync(async (req, res) => {
   const { data, meta } = await bookCategoryService.getAllBookCategories(req);
-
+  const message = data.length > 0 ? "BookCategories retrieved successfully" : "No book categories found";
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,

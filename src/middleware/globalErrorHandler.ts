@@ -54,6 +54,11 @@ const globalErrorHandler: ErrorRequestHandler = (error, req, res, next) => {
         message: error?.message,
       },
     ];
+
+    // Include data field if it exists
+    if (error.data) {
+      errorSource = error.data as any;
+    }
   } //TODO : unknown error handling ->
   else if (error instanceof Error) {
     message = error?.message;
@@ -65,14 +70,28 @@ const globalErrorHandler: ErrorRequestHandler = (error, req, res, next) => {
     ];
   }
 
+  // stack serialization
+  let formattedStack = null;
+  if (config.nodeEnv === "development" && error.stack) {
+    const lines = error.stack.split("\n");
+    const firstLine = lines[0]; // The original error message
+    const remaining = lines.slice(1);
+
+    // Grouping src folder files at the top
+    const srcLines = remaining.filter((l: string) => l.includes("\\src\\") || l.includes("/src/"));
+    const otherLines = remaining.filter((l: string) => !l.includes("\\src\\") && !l.includes("/src/"));
+
+    formattedStack = [firstLine, ...srcLines, ...otherLines];
+  }
+
   // ultimate return
   res.status(statusCode).json({
+    message: error?.message || message,
     success: false,
+    isOperationalError: (error as any)?.isOperationalError || false,
     statusCode,
-    message: message,
     errorSource,
-    error,
-    stack: config.nodeEnv === "development" ? error.stack : null,
+    stack: formattedStack,
   });
 };
 
