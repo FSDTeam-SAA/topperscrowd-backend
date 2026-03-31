@@ -1,7 +1,7 @@
+import bookCategoryRouter from "../modules/bookCategory/bookCategory.router";
 import { Router } from "express";
 import userRouter from "../modules/user/user.router";
 import authRouter from "../modules/auth/auth.router";
-import contactRouter from "../modules/contact/contact.router";
 
 const router = Router();
 
@@ -15,8 +15,8 @@ const moduleRoutes = [
     route: authRouter,
   },
   {
-    path: "/contact",
-    route: contactRouter,
+    path: "/bookcategory",
+    route: bookCategoryRouter,
   },
 ];
 

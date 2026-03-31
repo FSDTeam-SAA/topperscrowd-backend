@@ -2,6 +2,7 @@ import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
 import config from "../config";
 import logger from "../logger";
+import CustomError from "../errors/customError";
 
 // configure Cloudinary
 cloudinary.config({
@@ -27,8 +28,10 @@ export const uploadToCloudinary = async (filePath: string, folder: string) => {
       secure_url: result.secure_url,
     };
   } catch (error: any) {
-    logger.error("Cloudinary upload error:", error);
-    throw new Error("Failed to upload file to Cloudinary");
+    fs.unlinkSync(filePath);
+    // logger.error("Cloudinary upload error:", error);
+    // throw new Error("Failed to upload file to Cloudinary");
+    throw new CustomError(400, "Failed to upload file to Cloudinary");
   }
 };
 

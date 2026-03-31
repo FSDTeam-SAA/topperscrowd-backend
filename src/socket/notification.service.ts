@@ -1,7 +1,7 @@
 
 import { Server } from "socket.io";
 import mongoose from "mongoose";
-import Notification from "../modules/notification/notification.model";
+// import Notification from "../modules/notification/notification.model";
 
 let io: Server | null = null;
 
@@ -20,17 +20,11 @@ export const createNotification = async ({
   type: string;
   id: mongoose.Types.ObjectId;
 }) => {
-  const notification = await Notification.create({
-    to,
-    message,
-    type,
-    id,
-  });
 
   // Emit live notification
   if (io) {
-    io.to(to.toString()).emit("newNotification", notification);
+    io.to(to.toString()).emit("newNotification", "notification");
   }
 
-  return notification;
+  return null;
 };
