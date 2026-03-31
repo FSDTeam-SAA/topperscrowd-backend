@@ -157,7 +157,7 @@ const getAllBooks = async (req: any) => {
 //get a single book by id 
 const getSingleBook = async (req: any) => {
   const { bookId: id } = req.params;
-  const result = await Book.findById(id);
+  const result = await Book.findById(id).populate("genre", "title description");
   return result;
 };
 
@@ -257,7 +257,7 @@ const deleteBook = async (req: any) => {
       if (config.nodeEnv == "development" && result) console.log("Audio deleted from Cloudinary in deleteBook", book.audio.public_id);
     }
 
-    return book;
+    return null;
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
