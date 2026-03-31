@@ -1,6 +1,7 @@
 import { ZodSchema, ZodError } from "zod";
 import { RequestHandler, NextFunction, Request, Response } from "express";
 import AppError from "../errors/AppError";
+import { fileCleanup } from "../utils/fileCleanup";
 
 export const validateRequest = (schema: ZodSchema): RequestHandler => {
   return async (req: Request, _res: Response, next: NextFunction) => {
@@ -40,6 +41,9 @@ export const validateRequest = (schema: ZodSchema): RequestHandler => {
 
       next();
     } catch (err: any) {
+      // Automatic cleanup for local files on validation error
+      fileCleanup(req);
+
       if (err instanceof ZodError) {
         const errors = err.issues.map((issue) => ({
           field: issue.path[issue.path.length - 1] ?? "unknown",

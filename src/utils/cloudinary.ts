@@ -29,16 +29,20 @@ export const uploadToCloudinary = async (filePath: string, folder: string) => {
     };
   } catch (error: any) {
     fs.unlinkSync(filePath);
-    // logger.error("Cloudinary upload error:", error);
-    // throw new Error("Failed to upload file to Cloudinary");
     throw new AppError("Failed to upload file to Cloudinary", 400);
   }
 };
 
 // delete file
-export const deleteFromCloudinary = async (publicId: string) => {
+export const deleteFromCloudinary = async (
+  publicId: string,
+  resourceType: "image" | "video" | "raw" = "image"
+) => {
   try {
-    await cloudinary.uploader.destroy(publicId);
+    await cloudinary.uploader.destroy(publicId, {
+      resource_type: resourceType,
+    });
+    return true;
   } catch (error) {
     throw new Error("Failed to delete file from Cloudinary");
   }

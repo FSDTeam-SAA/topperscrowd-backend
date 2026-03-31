@@ -149,7 +149,7 @@ const updateBookCategoryById = async (req: any) => {
   //if image is provided, upload it to cloudinary
   if (image) {
     //delete old image from cloudinary if exists
-    if (result.image?.public_id) await deleteFromCloudinary(result.image.public_id);
+    if (result.image?.public_id) await deleteFromCloudinary(result.image.public_id, "image");
 
 
     //upload new image to cloudinary
@@ -177,7 +177,7 @@ const deleteBookCategoryById = async (req: any) => {
   const result = await BookCategory.findByIdAndDelete(bookcategoryId);
   if (!result) throw new AppError("Book category not found", 404);
 
-  if (result.image?.public_id) await deleteFromCloudinary(result.image.public_id);
+  if (result.image?.public_id) await deleteFromCloudinary(result.image.public_id, "image");
 };
 
 const bookCategoryService = {

@@ -3,7 +3,6 @@ import catchAsync from "../../utils/catchAsync";
 import sendResponse from "../../utils/sendResponse";
 import bookService from "./book.service";
 
-
 //create a new book
 const createBook = catchAsync(async (req, res) => {
   const result = await bookService.createBook(req);
@@ -25,7 +24,7 @@ const getAllBooks = catchAsync(async (req, res) => {
     success: true,
     message: message,
     data: data,
-    meta: meta
+    meta: meta,
   });
 });
 
@@ -41,6 +40,18 @@ const getSingleBook = catchAsync(async (req, res) => {
   });
 });
 
+//get books by category
+const getBooksByCategory = catchAsync(async (req, res) => {
+  const { data, meta } = await bookService.getBooksByCategory(req);
+  const message = data.length > 0 ? "Books retrieved successfully" : "No books found";
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: message,
+    data: data,
+    meta: meta,
+  });
+});
 
 //update a book by id
 const updateBook = catchAsync(async (req, res) => {
@@ -62,7 +73,7 @@ const deleteBook = catchAsync(async (req, res) => {
     statusCode: result ? StatusCodes.OK : StatusCodes.NOT_FOUND,
     success: !!result,
     message: message,
-    data: null,
+    data: result,
   });
 });
 
@@ -70,6 +81,7 @@ export const bookController = {
   createBook,
   getAllBooks,
   getSingleBook,
+  getBooksByCategory,
   updateBook,
   deleteBook,
 };

@@ -4,10 +4,10 @@ export interface IBook {
   title: string;
   description: string;
   author: string;
-  genre: string;
+  genre: mongoose.Types.ObjectId;
   price: number;
   language: string;
-  reviews : mongoose.Types.ObjectId[];
+  reviews: mongoose.Types.ObjectId[];
   saleCount: number;
   publisher: string;
   publicationYear: number;
@@ -19,6 +19,7 @@ export interface IBook {
     public_id: string;
     secure_url: string;
   };
+  status: "active" | "inactive";
 }
 
 export type BookModel = Model<IBook>;

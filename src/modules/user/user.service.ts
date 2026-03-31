@@ -214,7 +214,7 @@ const updateUserProfile = async (payload: any, email: string, file: any) => {
   );
 
   if (file && oldImagePublicId) {
-    await deleteFromCloudinary(oldImagePublicId);
+    await deleteFromCloudinary(oldImagePublicId, "image");
   }
 
   return result;

@@ -16,5 +16,25 @@ router.post(
   bookController.createBook
 );
 
+router.get("/get-all-books", bookController.getAllBooks);
+
+router.get("/get-book/:bookId", bookController.getSingleBook);
+
+router.get(
+  "/get-books-by-category/:bookcategoryId",
+  bookController.getBooksByCategory
+);
+
+router.patch(
+  "/update-book/:bookId",
+  upload.fields([
+    { name: "image", maxCount: 1 },
+    { name: "audio", maxCount: 1 },
+  ]),
+  bookController.updateBook
+);
+
+router.delete("/delete-book/:bookId", bookController.deleteBook);
+
 const bookRouter = router;
 export default bookRouter;
