@@ -1,6 +1,7 @@
 import { ZodSchema, ZodError } from "zod";
 import { RequestHandler, NextFunction, Request, Response } from "express";
-import CustomError from "../errors/customError";
+import AppError from "../errors/AppError";
+import { fileCleanup } from "../utils/fileCleanup";
 
 export const validateRequest = (schema: ZodSchema): RequestHandler => {
   return async (req: Request, _res: Response, next: NextFunction) => {
@@ -17,7 +18,7 @@ export const validateRequest = (schema: ZodSchema): RequestHandler => {
       // If BOTH body and image are missing
       if (!hasBody && !hasFile) {
         return next(
-          new CustomError(400, "At least one field should be updated", [
+          new AppError("At least one field should be updated", 400, [
             {
               field: "request",
               message: "Provide at least one field or image to update",
@@ -33,17 +34,22 @@ export const validateRequest = (schema: ZodSchema): RequestHandler => {
           query: req.query,
           params: req.params,
           cookies: req.cookies,
+          file: req.file,
+          files: req.files,
         });
       }
 
       next();
     } catch (err: any) {
+      // Automatic cleanup for local files on validation error
+      fileCleanup(req);
+
       if (err instanceof ZodError) {
         const errors = err.issues.map((issue) => ({
           field: issue.path[issue.path.length - 1] ?? "unknown",
           message: issue.message,
         }));
-        return next(new CustomError(400, "Validation failed", errors));
+        return next(new AppError("Validation failed", 400, errors));
       }
       next(err);
     }

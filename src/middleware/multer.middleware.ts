@@ -16,9 +16,16 @@ const storage = multer.diskStorage({
 
 export const upload = multer({
   storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, 
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const filetypes = /jpeg|jpg|pdf|png|mp4|avi|mov|avif|webp/;
+    let filetypes: RegExp;
+    if (file.fieldname === "image") {
+      filetypes = /jpeg|jpg|png|avif|webp/;
+    } else if (file.fieldname === "audio") {
+      filetypes = /mp3|wav|m4a|mpeg/;
+    } else {
+      return cb(new Error("Unknown field name!"));
+    }
 
     const mimetype = filetypes.test(file.mimetype);
     const extname = filetypes.test(
@@ -28,6 +35,6 @@ export const upload = multer({
     if (mimetype && extname) {
       return cb(null, true);
     }
-    cb(new Error("This file type is not allowed!"));
+    cb(new Error(`Invalid file type for field ${file.fieldname}!`));
   },
 });

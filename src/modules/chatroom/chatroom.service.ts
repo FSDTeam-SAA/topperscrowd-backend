@@ -1,5 +1,5 @@
 import mongoose, { Types } from "mongoose";
-import CustomError from "../../errors/customError";
+import AppError from "../../errors/AppError";
 import { paginationHelper } from "../../utils/pafinationHelper";
 import {
   broadcastNewMessage,
@@ -14,8 +14,6 @@ const sendMessage = async (req: any) => {
   const { content, replyTo } = req.body;
   const { id, email, role } = req.user;
 
-  console.log(id);
-
   const messageData: any = {
     senderId: new Types.ObjectId(id),
     senderName: email,
@@ -23,11 +21,9 @@ const sendMessage = async (req: any) => {
     content,
   };
 
-  console.log(messageData.senderId);
-
   if (replyTo) {
     const message = await ChatMessage.findById(replyTo.messageId);
-    if (!message) throw new CustomError(400, "Invalid reply message id");
+    if (!message) throw new AppError("Invalid reply message id", 400);
     messageData.replyTo = {
       messageId: new Types.ObjectId(replyTo.messageId),
       senderName: message.senderName,
@@ -36,7 +32,7 @@ const sendMessage = async (req: any) => {
   }
 
   const saved = await ChatMessage.create(messageData);
-  if (!saved) throw new CustomError(400, "Failed to send message");
+  if (!saved) throw new AppError("Failed to send message", 400);
 
   // Socket broadcast
   await broadcastNewMessage(saved);
@@ -114,12 +110,12 @@ const togglePinMessage = async (req: any) => {
   const { id } = req.user;
 
   if (!mongoose.isValidObjectId(messageId))
-    throw new CustomError(400, "Invalid message id");
+    throw new AppError("Invalid message id", 400);
 
   const message = await ChatMessage.findById(messageId);
-  if (!message) throw new CustomError(404, "Message not found");
+  if (!message) throw new AppError("Message not found", 404);
   if (message.isDeleted)
-    throw new CustomError(400, "Cannot pin a deleted message");
+    throw new AppError("Cannot pin a deleted message", 400);
 
   message.isPinned = !message.isPinned;
   message.pinnedBy = message.isPinned ? new Types.ObjectId(id) : undefined;
@@ -138,12 +134,12 @@ const reactToMessage = async (req: any) => {
   const { id: userId } = req.user;
 
   if (!mongoose.isValidObjectId(messageId))
-    throw new CustomError(400, "Invalid message id");
+    throw new AppError("Invalid message id", 400);
 
   const message = await ChatMessage.findById(messageId);
-  if (!message) throw new CustomError(404, "Message not found");
+  if (!message) throw new AppError("Message not found", 404);
   if (message.isDeleted)
-    throw new CustomError(400, "Cannot react to a deleted message");
+    throw new AppError("Cannot react to a deleted message", 400);
 
   const existingIndex = message.reactions.findIndex(
     (r) => r.userId.toString() === userId && r.emoji === emoji,
@@ -174,7 +170,7 @@ const deleteMessage = async (req: any) => {
   const { messageId } = req.params;
 
   if (!mongoose.isValidObjectId(messageId))
-    throw new CustomError(400, "Invalid message id");
+    throw new AppError("Invalid message id", 400);
 
   const result = await ChatMessage.findByIdAndUpdate(
     messageId,
@@ -182,7 +178,7 @@ const deleteMessage = async (req: any) => {
     { new: true },
   );
 
-  if (!result) throw new CustomError(404, "Message not found");
+  if (!result) throw new AppError("Message not found", 404);
 
   // Socket broadcast
   broadcastDeleteMessage(messageId);

@@ -5,6 +5,7 @@ export default {
   port: process.env.PORT,
   mongodbUrl: process.env.MONGODB_URL,
   nodeEnv: process.env.NODE_ENV,
+  clientUrl: process.env.CLIENT_URL || 'http://localhost:3000',
 
   bcryptSaltRounds: process.env.BCRYPT_SALT_ROUNDS,
   NODE_ENV: process.env.NODE_ENV,
@@ -33,4 +34,13 @@ export default {
     AES_KEY: process.env.AES_KEY,
     AES_IV: process.env.AES_IV,
   },
+
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY,
+  },
+  cron: {
+    checkInterval: process.env.CRON_CHECK_INTERVAL || '*/10 * * * * *', // Every 10 seconds
+    orderExpiryMinutes: Number(process.env.ORDER_EXPIRY_MINUTES) || 20,
+    maxOrderAgeHours: Number(process.env.MAX_ORDER_AGE_HOURS) || 24,
+  }
 };

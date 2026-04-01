@@ -1,4 +1,4 @@
-import http from "http";
+import http from "node:http";
 import mongoose from "mongoose";
 import { Server } from "socket.io";
 import app from "./app";
@@ -6,6 +6,7 @@ import config from "./config";
 import logger from "./logger";
 import { initNotificationSocket } from "./socket/notification.service";
 import initChatSocket from "./socket/chat.socket";
+import { initOrderCron } from "./modules/order/order.cron";
 
 async function main() {
   try {
@@ -20,13 +21,14 @@ async function main() {
       },
     });
 
-io.on("connection", (socket) => {
-  logger.info(`Client connected: ${socket.id}`);
-  socket.on("joinRoom", (userId) => socket.join(userId)); 
-});
+    io.on("connection", (socket) => {
+      logger.info(`Client connected: ${socket.id}`);
+      socket.on("joinRoom", (userId) => socket.join(userId));
+    });
 
     initNotificationSocket(io);
     initChatSocket(io);
+    initOrderCron();
 
     httpServer.listen(config.port, () => {
       logger.info(`Server running on port ${config.port}`);
