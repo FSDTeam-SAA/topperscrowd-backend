@@ -9,8 +9,8 @@ import Review from "./review.model";
 //create a new review
 const createReview = async (req: any) => {
   const { bookId, rating, comment } = req.body;
-  
-  const userId = req.user._id;
+
+  const userId = req.user.id;
 
   const session = await mongoose.startSession();
   try {

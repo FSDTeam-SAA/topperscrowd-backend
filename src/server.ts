@@ -1,10 +1,11 @@
-import http from "http";
+import http from "node:http";
 import mongoose from "mongoose";
 import { Server } from "socket.io";
 import app from "./app";
 import config from "./config";
 import logger from "./logger";
 import { initNotificationSocket } from "./socket/notification.service";
+import { initOrderCron } from "./modules/order/order.cron";
 
 async function main() {
   try {
@@ -25,6 +26,7 @@ async function main() {
     });
 
     initNotificationSocket(io);
+    initOrderCron();
 
     httpServer.listen(config.port, () => {
       logger.info(`Server running on port ${config.port}`);

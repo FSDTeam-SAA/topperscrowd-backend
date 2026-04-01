@@ -5,6 +5,7 @@ export default {
   port: process.env.PORT,
   mongodbUrl: process.env.MONGODB_URL,
   nodeEnv: process.env.NODE_ENV,
+  clientUrl: process.env.CLIENT_URL || 'http://localhost:3000',
 
   bcryptSaltRounds: process.env.BCRYPT_SALT_ROUNDS,
   NODE_ENV: process.env.NODE_ENV,
@@ -32,5 +33,9 @@ export default {
   security: {
     AES_KEY: process.env.AES_KEY,
     AES_IV: process.env.AES_IV,
+  },
+
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY,
   },
 };

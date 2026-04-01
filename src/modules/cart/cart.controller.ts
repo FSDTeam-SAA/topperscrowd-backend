@@ -6,7 +6,7 @@ import { CartService } from './cart.service';
 
 const addToCart = catchAsync(async (req: Request, res: Response) => {
   // Assume user ID comes from your Auth Middleware (JWT)
-  const userId = req.user._id; 
+  const userId = req.user.id;
   const { bookId, quantity } = req.body;
 
   const result = await CartService.addToCartIntoDB(userId, bookId, quantity || 1);
@@ -19,6 +19,48 @@ const addToCart = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getMyCart = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user.id;
+  const result = await CartService.getCartFromDB(userId);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Cart retrieved successfully',
+    data: result,
+  });
+});
+
+const updateQuantity = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user.id;
+  const { bookId, quantity } = req.body;
+  const result = await CartService.updateCartItemQuantity(userId, bookId, quantity);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Cart updated successfully',
+    data: result,
+  });
+});
+
+// clear cart
+const clearCart = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user.id;
+  const result = await CartService.clearCartFromDB(userId);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Cart cleared successfully',
+    data: result,
+  });
+});
+
 export const CartController = {
   addToCart,
+  getMyCart,
+  updateQuantity,
+  clearCart,
+
 };
