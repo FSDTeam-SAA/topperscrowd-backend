@@ -7,6 +7,7 @@ import { OrderRouter } from "../modules/order/order.routes";
 import { CouponRouter } from "../modules/coupon/coupon.routes";
 import { CartRouter } from "../modules/cart/cart.routes";
 import reviewRouter from "../modules/review/review.router";
+import { AdminDashboardRoutes } from "../modules/adminDashboard/adminDashboard.routes";
 
 const router = Router();
 
@@ -36,16 +37,16 @@ const moduleRoutes = [
     route: CartRouter,
   },
   {
-    path: "/review",
-    route: reviewRouter,
-  },
-  {
     path: "/order",
     route: OrderRouter,
   },
   {
     path: "/coupon",
     route: CouponRouter,
+  },
+  {
+    path: "/admin-dashboard",
+    route: AdminDashboardRoutes,
   }
 ];
 

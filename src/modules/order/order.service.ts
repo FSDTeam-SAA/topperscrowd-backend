@@ -13,13 +13,12 @@ const stripe = new Stripe(config.stripe.secretKey as string, {
   apiVersion: '2023-10-16', 
 });
 
-const buildCheckoutItems = async (userId: string, orderType: string, bookId?: string, quantity: number = 1) => {
+const buildCheckoutItems = async (userId: string, bookId?: string, quantity: number = 1) => {
   const itemsToCheckout: { book: mongoose.Types.ObjectId; price: number; quantity: number }[] = [];
   let totalAmount = 0;
   const bookIdsToCheck: string[] = [];
 
-  if (orderType === 'buy-now') {
-    if (!bookId) throw new AppError('bookId is required for buy-now', httpStatus.BAD_REQUEST);
+  if (bookId) {
     const book = await Book.findById(bookId);
     if (!book) throw new AppError('Book not found', httpStatus.NOT_FOUND);
     
@@ -30,7 +29,7 @@ const buildCheckoutItems = async (userId: string, orderType: string, bookId?: st
     });
     totalAmount = book.price * quantity;
     bookIdsToCheck.push(bookId);
-  } else if (orderType === 'checkout-all') {
+  } else {
     const cart = await Cart.findOne({ user: userId }).populate('items.book');
     if (!cart || cart.items.length === 0) {
       throw new AppError('Cart is empty', httpStatus.BAD_REQUEST);
@@ -88,12 +87,12 @@ const applyCouponDiscount = async (userId: string, couponCode?: string) => {
 
 const createCheckoutSession = async (
   userId: string,
-  payload: { orderType: 'buy-now' | 'checkout-all'; bookId?: string; quantity?: number; couponCode?: string }
+  payload: { bookId?: string; quantity?: number; couponCode?: string }
 ) => {
-  const { orderType, bookId, quantity = 1, couponCode } = payload;
+  const { bookId, quantity = 1, couponCode } = payload;
   
   // 1. Snapshot Prices & Cart Integrity
-  const { itemsToCheckout, totalAmount, bookIdsToCheck } = await buildCheckoutItems(userId, orderType, bookId, quantity);
+  const { itemsToCheckout, totalAmount, bookIdsToCheck } = await buildCheckoutItems(userId, bookId, quantity);
 
   // Apply Coupon
   const { appliedCouponId, stripeCouponId } = await applyCouponDiscount(userId, couponCode);
@@ -115,7 +114,6 @@ const createCheckoutSession = async (
     items: itemsToCheckout,
     totalAmount,
     paymentStatus: 'pending',
-    orderType,
     appliedCoupon: appliedCouponId,
   });
 
@@ -144,7 +142,6 @@ const createCheckoutSession = async (
     metadata: {
       userId: userId.toString(),
       orderId: order._id.toString(),
-      orderType,
     },
   });
 
@@ -157,7 +154,6 @@ const createCheckoutSession = async (
     orderId: order._id,
     stripeSessionId: session.id,
     totalAmount: order.totalAmount,
-    
   };
 };
 
@@ -203,33 +199,29 @@ const finalizeOrder = async (order: any, session: Stripe.Checkout.Session) => {
   order.transactionId = session.payment_intent as string;
   await order.save();
 
-  // 6. Handling the Ghost Cart (Data Integrity)
-  if (order.orderType === 'checkout-all') {
-    // Empty the whole cart
-    await Cart.findOneAndUpdate({ user: order.userId }, { items: [], totalPrice: 0 });
-  } else if (order.orderType === 'buy-now') {
-    // Remove only the specific purchased items from the cart
-    const purchasedBookIds = new Set(order.items.map((item: any) => item.book.toString()));
+  // 6. Handling the Ghost Cart (Data Integrity) explicitly without orderType switch
+  const purchasedBookIds = new Set(order.items.map((item: any) => item.book.toString()));
+  
+  // We fetch and update the cart manually instead of empty to preserve ghost items natively everywhere
+  const cart = await Cart.findOne({ user: order.userId }).populate('items.book');
+  if (cart) {
+    cart.items = cart.items.filter((item: any) => item.book && !purchasedBookIds.has(item.book._id.toString()));
     
-    // We fetch and update the cart manually instead of empty to preserve ghost items
-    const cart = await Cart.findOne({ user: order.userId }).populate('items.book');
-    if (cart) {
-      cart.items = cart.items.filter((item: any) => item.book && !purchasedBookIds.has(item.book._id.toString()));
-      
-      // Recalc Total
-      let total = 0;
-      cart.items.forEach((item: any) => {
-        if (item.book) {
-          total += item.book.price * item.quantity;
-        }
-      });
-      cart.totalPrice = total;
-      await cart.save();
-    }
+    // Recalc Total
+    let total = 0;
+    cart.items.forEach((item: any) => {
+      if (item.book) {
+        total += item.book.price * item.quantity;
+      }
+    });
+    cart.totalPrice = total;
+    await cart.save();
   }
 
-  // NOTE: Increment Book saleCount could be added here
-  
+  // 7. Increment Book saleCount
+  for (const item of order.items) {
+    await Book.findByIdAndUpdate(item.book, { $inc: { saleCount: item.quantity } });
+  }
   // 8. Increment Coupon usage if applied
   if (order.appliedCoupon) {
     await Coupon.findByIdAndUpdate(order.appliedCoupon, { $inc: { usedCount: 1 } });

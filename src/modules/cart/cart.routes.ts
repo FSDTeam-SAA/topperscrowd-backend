@@ -27,6 +27,7 @@ router.get(
 router.patch(
     '/update-quantity',
     auth(USER_ROLE.USER),
+    validateRequest(CartValidation.updateQuantityZodSchema),
     CartController.updateQuantity
 );
 
@@ -35,6 +36,12 @@ router.delete(
     '/clear-cart',
     auth(USER_ROLE.USER),
     CartController.clearCart
+);
+
+router.delete(
+    '/remove-item/:bookId',
+    auth(USER_ROLE.USER),
+    CartController.removeItem
 );
 
 export const CartRouter = router;
