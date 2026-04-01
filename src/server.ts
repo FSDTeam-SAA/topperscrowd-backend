@@ -1,4 +1,4 @@
-import http from "http";
+import http from "node:http";
 import mongoose from "mongoose";
 import { Server } from "socket.io";
 import app from "./app";

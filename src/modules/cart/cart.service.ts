@@ -14,14 +14,7 @@ const addToCartIntoDB = async (userId: string, bookId: string, quantity: number)
   // 2. Find the user's cart
   let cart = await Cart.findOne({ user: userId });
 
-  if (!cart) {
-    // Create new cart if it doesn't exist
-    cart = await Cart.create({
-      user: userId,
-      items: [{ book: bookId, quantity }],
-      totalPrice: book.price * quantity,
-    });
-  } else {
+  if (cart) {
     // 3. Check if the book is already in the cart
     const existingItemIndex = cart.items.findIndex(
       (item) => item.book.toString() === bookId
@@ -48,6 +41,13 @@ const addToCartIntoDB = async (userId: string, bookId: string, quantity: number)
     cart.totalPrice = Number(cart.totalPrice.toFixed(2));
 
     await cart.save();
+  } else {
+    // Create new cart if it doesn't exist
+    cart = await Cart.create({
+      user: userId,
+      items: [{ book: bookId, quantity }],
+      totalPrice: book.price * quantity,
+    });
   }
 
   return cart;

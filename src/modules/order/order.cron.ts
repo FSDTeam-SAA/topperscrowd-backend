@@ -5,7 +5,7 @@ import Stripe from 'stripe';
 import config from '../../config';
 import logger from '../../logger';
 
-const stripe = new Stripe(config.stripe.secretKey as string, {
+const stripe = new Stripe(config.stripe.secretKey!, {
   // @ts-ignore
   apiVersion: '2023-10-16',
 });

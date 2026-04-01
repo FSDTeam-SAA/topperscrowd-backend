@@ -13,17 +13,11 @@ const stripe = new Stripe(config.stripe.secretKey as string, {
   apiVersion: '2023-10-16', 
 });
 
-const createCheckoutSession = async (
-  userId: string,
-  payload: { orderType: 'buy-now' | 'checkout-all'; bookId?: string; quantity?: number; couponCode?: string }
-) => {
-  const { orderType, bookId, quantity = 1, couponCode } = payload;
-  let itemsToCheckout: { book: mongoose.Types.ObjectId; price: number; quantity: number }[] = [];
+const buildCheckoutItems = async (userId: string, orderType: string, bookId?: string, quantity: number = 1) => {
+  const itemsToCheckout: { book: mongoose.Types.ObjectId; price: number; quantity: number }[] = [];
   let totalAmount = 0;
-  
   const bookIdsToCheck: string[] = [];
 
-  // 1. Snapshot Prices & Cart Integrity
   if (orderType === 'buy-now') {
     if (!bookId) throw new AppError('bookId is required for buy-now', httpStatus.BAD_REQUEST);
     const book = await Book.findById(bookId);
@@ -49,7 +43,7 @@ const createCheckoutSession = async (
       const bookData = item.book as any; // populated book
       itemsToCheckout.push({
         book: new mongoose.Types.ObjectId(String(bookData._id)),
-        price: bookData.price, // Snapshot current price
+        price: bookData.price,
         quantity: item.quantity,
       });
       totalAmount += bookData.price * item.quantity;
@@ -57,37 +51,52 @@ const createCheckoutSession = async (
     }
   }
 
-  let appliedCouponId;
-  let stripeCouponId;
+  return { itemsToCheckout, totalAmount, bookIdsToCheck };
+};
 
-  if (couponCode) {
-    const coupon = await Coupon.findOne({ codeName: couponCode, assignedTo: userId });
-    if (!coupon) {
-      throw new AppError('Invalid coupon code', httpStatus.BAD_REQUEST);
-    }
-    if (coupon.expiryDate < new Date()) {
-      throw new AppError('Coupon has expired', httpStatus.BAD_REQUEST);
-    }
-    if (coupon.usedCount >= coupon.usesLimit) {
-      throw new AppError('Coupon usage limit reached', httpStatus.BAD_REQUEST);
-    }
+const applyCouponDiscount = async (userId: string, couponCode?: string) => {
+  if (!couponCode) return { appliedCouponId: undefined, stripeCouponId: undefined };
 
-    if (coupon.discountType === 'percentage') {
-      const stripeCoupon = await stripe.coupons.create({
-        percent_off: coupon.discountAmount,
-        duration: 'once',
-      });
-      stripeCouponId = stripeCoupon.id;
-    } else {
-      const stripeCoupon = await stripe.coupons.create({
-        amount_off: Math.round(coupon.discountAmount * 100),
-        currency: 'usd',
-        duration: 'once',
-      });
-      stripeCouponId = stripeCoupon.id;
-    }
-    appliedCouponId = coupon._id;
+  const coupon = await Coupon.findOne({ codeName: couponCode, assignedTo: userId });
+  if (!coupon) {
+    throw new AppError('Invalid coupon code', httpStatus.BAD_REQUEST);
   }
+  if (coupon.expiryDate < new Date()) {
+    throw new AppError('Coupon has expired', httpStatus.BAD_REQUEST);
+  }
+  if (coupon.usedCount >= coupon.usesLimit) {
+    throw new AppError('Coupon usage limit reached', httpStatus.BAD_REQUEST);
+  }
+
+  let stripeCouponId;
+  if (coupon.discountType === 'percentage') {
+    const stripeCoupon = await stripe.coupons.create({
+      percent_off: coupon.discountAmount,
+      duration: 'once',
+    });
+    stripeCouponId = stripeCoupon.id;
+  } else {
+    const stripeCoupon = await stripe.coupons.create({
+      amount_off: Math.round(coupon.discountAmount * 100),
+      currency: 'usd',
+      duration: 'once',
+    });
+    stripeCouponId = stripeCoupon.id;
+  }
+  return { appliedCouponId: coupon._id, stripeCouponId };
+};
+
+const createCheckoutSession = async (
+  userId: string,
+  payload: { orderType: 'buy-now' | 'checkout-all'; bookId?: string; quantity?: number; couponCode?: string }
+) => {
+  const { orderType, bookId, quantity = 1, couponCode } = payload;
+  
+  // 1. Snapshot Prices & Cart Integrity
+  const { itemsToCheckout, totalAmount, bookIdsToCheck } = await buildCheckoutItems(userId, orderType, bookId, quantity);
+
+  // Apply Coupon
+  const { appliedCouponId, stripeCouponId } = await applyCouponDiscount(userId, couponCode);
 
   // 1a. Duplicate Ownership Check
   const existingOrder = await Order.findOne({
