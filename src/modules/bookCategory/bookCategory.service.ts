@@ -45,7 +45,7 @@ const getAllBookCategories = async (req: any) => {
   const { skip, limit: perPage } = paginationHelper(page, limit);
 
   // Build filter object
-  const filter: any = {};
+  const filter: any = { isDeleted: false };
 
   // Search (name/title)
   if (search) {

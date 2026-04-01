@@ -10,8 +10,18 @@ const bookSchema = new Schema<IBook>(
     genre: { type: Schema.Types.ObjectId, ref: "BookCategory", required: true },
     price: { type: Number, required: true },
     language: { type: String, required: true },
-    reviews: { type: [Schema.Types.ObjectId], ref: "Review" },
-    // reviews: { type: [String], required: true },
+    reviews: {
+      type: [Schema.Types.ObjectId],
+      ref: "Review",
+    },
+    averageRating: {
+      type: Number,
+      default: 0,
+    },
+    totalReviews: {
+      type: Number,
+      default: 0,
+    },
     saleCount: { type: Number },
     publisher: { type: String, required: true },
     publicationYear: { type: Number, required: true },

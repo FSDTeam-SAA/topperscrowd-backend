@@ -8,6 +8,8 @@ export interface IBook {
   price: number;
   language: string;
   reviews: mongoose.Types.ObjectId[];
+  averageRating: number;
+  totalReviews: number;
   saleCount: number;
   publisher: string;
   publicationYear: number;
