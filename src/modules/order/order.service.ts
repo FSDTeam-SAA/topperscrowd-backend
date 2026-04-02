@@ -13,15 +13,15 @@ const stripe = new Stripe(config.stripe.secretKey as string, {
   apiVersion: '2023-10-16', 
 });
 
-const buildCheckoutItems = async (userId: string, orderType: string, bookId?: string, quantity: number = 1) => {
+const buildCheckoutItems = async (userId: string, bookId?: string, quantity: number = 1) => {
   const itemsToCheckout: { book: mongoose.Types.ObjectId; price: number; quantity: number }[] = [];
   let totalAmount = 0;
   const bookIdsToCheck: string[] = [];
 
-  if (orderType === 'buy-now') {
-    if (!bookId) throw new AppError('bookId is required for buy-now', httpStatus.BAD_REQUEST);
+  if (bookId) {
     const book = await Book.findById(bookId);
     if (!book) throw new AppError('Book not found', httpStatus.NOT_FOUND);
+    if (book.status !== 'active') throw new AppError('This book is currently unavailable for purchase', httpStatus.BAD_REQUEST);
     
     itemsToCheckout.push({
       book: new mongoose.Types.ObjectId(bookId),
@@ -30,17 +30,17 @@ const buildCheckoutItems = async (userId: string, orderType: string, bookId?: st
     });
     totalAmount = book.price * quantity;
     bookIdsToCheck.push(bookId);
-  } else if (orderType === 'checkout-all') {
+  } else {
     const cart = await Cart.findOne({ user: userId }).populate('items.book');
     if (!cart || cart.items.length === 0) {
       throw new AppError('Cart is empty', httpStatus.BAD_REQUEST);
     }
     
     for (const item of cart.items) {
-      if (!item.book) {
-        throw new AppError('One or more items in your cart are no longer available', httpStatus.BAD_REQUEST);
-      }
       const bookData = item.book as any; // populated book
+      if (!bookData || bookData.status !== 'active') {
+        throw new AppError(`'${bookData?.title || 'One or more items'}' is no longer available`, httpStatus.BAD_REQUEST);
+      }
       itemsToCheckout.push({
         book: new mongoose.Types.ObjectId(String(bookData._id)),
         price: bookData.price,
@@ -88,12 +88,12 @@ const applyCouponDiscount = async (userId: string, couponCode?: string) => {
 
 const createCheckoutSession = async (
   userId: string,
-  payload: { orderType: 'buy-now' | 'checkout-all'; bookId?: string; quantity?: number; couponCode?: string }
+  payload: { bookId?: string; quantity?: number; couponCode?: string }
 ) => {
-  const { orderType, bookId, quantity = 1, couponCode } = payload;
+  const { bookId, quantity = 1, couponCode } = payload;
   
   // 1. Snapshot Prices & Cart Integrity
-  const { itemsToCheckout, totalAmount, bookIdsToCheck } = await buildCheckoutItems(userId, orderType, bookId, quantity);
+  const { itemsToCheckout, totalAmount, bookIdsToCheck } = await buildCheckoutItems(userId, bookId, quantity);
 
   // Apply Coupon
   const { appliedCouponId, stripeCouponId } = await applyCouponDiscount(userId, couponCode);
@@ -115,36 +115,37 @@ const createCheckoutSession = async (
     items: itemsToCheckout,
     totalAmount,
     paymentStatus: 'pending',
-    orderType,
     appliedCoupon: appliedCouponId,
   });
 
   // 3. Stripe Session Initiation
-  const lineItems = itemsToCheckout.map((item) => {
+  const lineItems = await Promise.all(itemsToCheckout.map(async (item) => {
+    const book = await Book.findById(item.book);
     return {
       price_data: {
         currency: 'usd',
         product_data: {
-          name: 'Book Purchase', // Could fetch exact title if needed
+          name: book?.title || 'Audiobook Purchase',
+          description: book?.author ? `By ${book.author}` : undefined,
         },
-        unit_amount: Math.round(item.price * 100), // Stripe expects cents
+        unit_amount: Math.round(item.price * 100),
       },
       quantity: item.quantity,
     };
-  });
+  }));
 
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card'],
     line_items: lineItems,
     discounts: stripeCouponId ? [{ coupon: stripeCouponId }] : undefined,
     mode: 'payment',
+    expires_at: Math.floor(Date.now() / 1000) + (config.cron.orderExpiryMinutes * 60), // Match internal cleanup window
     success_url: `${config.clientUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${config.clientUrl}/payment/cancel`,
     client_reference_id: order._id.toString(),
     metadata: {
       userId: userId.toString(),
       orderId: order._id.toString(),
-      orderType,
     },
   });
 
@@ -157,7 +158,6 @@ const createCheckoutSession = async (
     orderId: order._id,
     stripeSessionId: session.id,
     totalAmount: order.totalAmount,
-    
   };
 };
 
@@ -198,38 +198,47 @@ const verifyPayment = async (userId: string, sessionId: string) => {
  * Shared finalization logic for both synchronous verification and async cron job
  */
 const finalizeOrder = async (order: any, session: Stripe.Checkout.Session) => {
-  // Update Order
-  order.paymentStatus = 'paid';
-  order.transactionId = session.payment_intent as string;
-  await order.save();
+  // 1. Atomic Idempotency Check
+  // We only proceed if the status is currently 'pending'. This prevents race conditions between Cron and Manual verify.
+  const updatedOrder = await Order.findOneAndUpdate(
+    { _id: order._id, paymentStatus: 'pending' },
+    { 
+      $set: { 
+        paymentStatus: 'paid',
+        transactionId: session.payment_intent as string
+      } 
+    },
+    { new: true }
+  );
 
-  // 6. Handling the Ghost Cart (Data Integrity)
-  if (order.orderType === 'checkout-all') {
-    // Empty the whole cart
-    await Cart.findOneAndUpdate({ user: order.userId }, { items: [], totalPrice: 0 });
-  } else if (order.orderType === 'buy-now') {
-    // Remove only the specific purchased items from the cart
-    const purchasedBookIds = new Set(order.items.map((item: any) => item.book.toString()));
-    
-    // We fetch and update the cart manually instead of empty to preserve ghost items
-    const cart = await Cart.findOne({ user: order.userId }).populate('items.book');
-    if (cart) {
-      cart.items = cart.items.filter((item: any) => item.book && !purchasedBookIds.has(item.book._id.toString()));
-      
-      // Recalc Total
-      let total = 0;
-      cart.items.forEach((item: any) => {
-        if (item.book) {
-          total += item.book.price * item.quantity;
-        }
-      });
-      cart.totalPrice = total;
-      await cart.save();
-    }
+  if (!updatedOrder) {
+    // Order was already processed by another process (e.g., cron or concurrent request)
+    return;
   }
 
-  // NOTE: Increment Book saleCount could be added here
+  // 6. Handling the Ghost Cart (Data Integrity) explicitly without orderType switch
+  const purchasedBookIds = new Set(order.items.map((item: any) => item.book.toString()));
   
+  // We fetch and update the cart manually instead of empty to preserve ghost items natively everywhere
+  const cart = await Cart.findOne({ user: order.userId }).populate('items.book');
+  if (cart) {
+    cart.items = cart.items.filter((item: any) => item.book && !purchasedBookIds.has(item.book._id.toString()));
+    
+    // Recalc Total
+    let total = 0;
+    cart.items.forEach((item: any) => {
+      if (item.book) {
+        total += item.book.price * item.quantity;
+      }
+    });
+    cart.totalPrice = total;
+    await cart.save();
+  }
+
+  // 7. Increment Book saleCount
+  for (const item of order.items) {
+    await Book.findByIdAndUpdate(item.book, { $inc: { saleCount: item.quantity } });
+  }
   // 8. Increment Coupon usage if applied
   if (order.appliedCoupon) {
     await Coupon.findByIdAndUpdate(order.appliedCoupon, { $inc: { usedCount: 1 } });

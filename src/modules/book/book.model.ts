@@ -22,7 +22,7 @@ const bookSchema = new Schema<IBook>(
       type: Number,
       default: 0,
     },
-    saleCount: { type: Number },
+    saleCount: { type: Number, default: 0 },
     publisher: { type: String, required: true },
     publicationYear: { type: Number, required: true },
     image: {

@@ -13,7 +13,6 @@ export interface IOrder {
   paymentStatus: 'pending' | 'paid' | 'cancelled';
   stripeSessionId?: string;
   transactionId?: string;
-  orderType: 'buy-now' | 'checkout-all';
   appliedCoupon?: Types.ObjectId;
   createdAt?: Date;
   updatedAt?: Date;

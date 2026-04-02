@@ -5,6 +5,7 @@ import app from "./app";
 import config from "./config";
 import logger from "./logger";
 import { initNotificationSocket } from "./socket/notification.service";
+import initChatSocket from "./socket/chat.socket";
 import { initOrderCron } from "./modules/order/order.cron";
 
 async function main() {
@@ -26,6 +27,7 @@ async function main() {
     });
 
     initNotificationSocket(io);
+    initChatSocket(io);
     initOrderCron();
 
     httpServer.listen(config.port, () => {

@@ -22,11 +22,6 @@ const orderSchema = new Schema<IOrder>(
     },
     stripeSessionId: { type: String },
     transactionId: { type: String },
-    orderType: {
-      type: String,
-      enum: ['buy-now', 'checkout-all'],
-      required: true,
-    },
     appliedCoupon: { type: Schema.Types.ObjectId, ref: 'Coupon' },
   },
   {

@@ -38,4 +38,9 @@ export default {
   stripe: {
     secretKey: process.env.STRIPE_SECRET_KEY,
   },
+  cron: {
+    checkInterval: process.env.CRON_CHECK_INTERVAL || '*/10 * * * * *', // Every 10 seconds
+    orderExpiryMinutes: Number(process.env.ORDER_EXPIRY_MINUTES) || 20,
+    maxOrderAgeHours: Number(process.env.MAX_ORDER_AGE_HOURS) || 24,
+  }
 };

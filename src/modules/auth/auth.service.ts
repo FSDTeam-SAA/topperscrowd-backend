@@ -18,8 +18,8 @@ const login = async (payload: { email: string; password: string }) => {
       StatusCodes.NOT_FOUND,
     );
 
-  if (user.isVerified === false)
-    throw new AppError("Please verify your email", StatusCodes.UNAUTHORIZED);
+  // if (user.isVerified === false)
+  //   throw new AppError("Please verify your email", StatusCodes.UNAUTHORIZED);
 
   const isPasswordValid = await User.isPasswordMatch(password, user.password);
   if (!isPasswordValid)
