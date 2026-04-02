@@ -3,6 +3,8 @@ import AppError from "../../errors/AppError";
 import Book from "../book/book.model";
 import { paginationHelper } from "../../utils/pafinationHelper";
 import Review from "./review.model";
+import { Order } from "../order/order.model";
+import httpStatus from "http-status";
 
 
 
@@ -20,7 +22,18 @@ const createReview = async (req: any) => {
     const book = await Book.findById(bookId).session(session);
     if (!book) throw new AppError("Book not found", 404);
 
-    //chaeck if user has already reviewed the book
+    // Check if user has purchased the book
+    const hasPurchased = await Order.findOne({
+      userId,
+      "items.book": bookId,
+      paymentStatus: "paid",
+    }).session(session);
+
+    if (!hasPurchased) {
+      throw new AppError("You must purchase this book before you can review it", httpStatus.FORBIDDEN);
+    }
+
+    // chaeck if user has already reviewed the book
     const existingReview = await Review.findOne({ bookId, userId, isDeleted: false }).session(session);
     if (existingReview) throw new AppError("You have already reviewed this book", 400);
 
