@@ -71,9 +71,9 @@ const deleteBook = catchAsync(async (req, res) => {
   const message = result ? "Book deleted successfully" : "Book not found";
   sendResponse(res, {
     statusCode: result ? StatusCodes.OK : StatusCodes.NOT_FOUND,
-    success: !!result,
+    success: result ? true : false,
     message: message,
-    data: result,
+    data: null,
   });
 });
 

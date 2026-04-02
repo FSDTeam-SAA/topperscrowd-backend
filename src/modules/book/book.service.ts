@@ -240,7 +240,7 @@ const deleteBook = async (req: any) => {
     const book = await Book.findById(id).session(session);
     if (!book) throw new AppError("Book not found", 404);
 
-    await Book.findByIdAndDelete(id).session(session);
+    const result = await Book.findByIdAndDelete(id).session(session);
 
     await session.commitTransaction();
     session.endSession();
@@ -257,7 +257,7 @@ const deleteBook = async (req: any) => {
       if (config.nodeEnv == "development" && result) console.log("Audio deleted from Cloudinary in deleteBook", book.audio.public_id);
     }
 
-    return null;
+    return result?._id;
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
