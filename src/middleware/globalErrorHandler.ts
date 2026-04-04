@@ -70,28 +70,14 @@ const globalErrorHandler: ErrorRequestHandler = (error, req, res, next) => {
     ];
   }
 
-  // stack serialization
-  let formattedStack = null;
-  if (config.nodeEnv === "development" && error.stack) {
-    const lines = error.stack.split("\n");
-    const firstLine = lines[0]; // The original error message
-    const remaining = lines.slice(1);
-
-    // Grouping src folder files at the top
-    const srcLines = remaining.filter((l: string) => l.includes("\\src\\") || l.includes("/src/"));
-    const otherLines = remaining.filter((l: string) => !l.includes("\\src\\") && !l.includes("/src/"));
-
-    formattedStack = [firstLine, ...srcLines, ...otherLines];
-  }
-
   // ultimate return
   res.status(statusCode).json({
     message: error?.message || message,
     success: false,
-    isOperationalError: (error as any)?.isOperationalError || false,
+    isOperationalError: error.isOperationalError || false,
     statusCode,
     errorSource,
-    stack: formattedStack,
+    stack: config.nodeEnv === "development" ? error.stack?.split("\n") : null,
   });
 };
 

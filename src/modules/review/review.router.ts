@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { reviewController } from "./review.controller";
 import { ReviewValidation } from "./review.validation";
 import { validateRequest } from "../../middleware/validateRequest";
 import auth from "../../middleware/auth";
 import { USER_ROLE } from "../user/user.constant";
+import { reviewController } from "./review.controller";
 
 const router = Router();
 

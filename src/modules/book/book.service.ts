@@ -5,6 +5,8 @@ import { paginationHelper } from "../../utils/pafinationHelper";
 import { IBook } from "./book.interface";
 import Book from "./book.model";
 import config from "../../config";
+import { Order } from "../order/order.model";
+import { transformBookResponse } from "./book.utils";
 
 //create a new book
 const createBook = async (req: any) => {
@@ -134,17 +136,32 @@ const getAllBooks = async (req: any) => {
 
   const sortOrder = sort === "descending" ? -1 : 1;
 
-  // Query with pagination and performance optimization
+  // 1. Fetch purchased book IDs for current user
+  let purchasedBookIds: string[] = [];
+  if (req.user && req.user.role !== 'admin') {
+    const purchased = await Order.find({
+      userId: req.user.id,
+      paymentStatus: 'paid'
+    }).distinct('items.book');
+    purchasedBookIds = (purchased as any).map((id: any) => id.toString());
+  }
+
+  // 2. Query with pagination and performance optimization
   const [data, total] = await Promise.all([
     Book.find(filter)
       .skip(skip)
       .limit(Number(perPage))
-      .sort({ createdAt: sortOrder }).populate("genre", "title description"),
+      .sort({ createdAt: sortOrder })
+      .populate("genre", "title description")
+      .lean(), // Use lean for transformation
     Book.countDocuments(filter),
   ]);
 
+  // 3. Transform response based on purchase status
+  const transformedData = transformBookResponse(data, req.user, purchasedBookIds);
+
   return {
-    data,
+    data: transformedData,
     meta: {
       total,
       page: Number(page),
@@ -157,8 +174,22 @@ const getAllBooks = async (req: any) => {
 //get a single book by id 
 const getSingleBook = async (req: any) => {
   const { bookId: id } = req.params;
-  const result = await Book.findById(id).populate("genre", "title description");
-  return result;
+  const result = await Book.findById(id).populate("genre", "title description").lean();
+  
+  if (!result) return null;
+
+  // Check purchase status for single book
+  let purchasedBookIds: string[] = [];
+  if (req.user && req.user.role !== 'admin') {
+    const isPurchased = await Order.exists({
+      userId: req.user.id,
+      'items.book': id,
+      paymentStatus: 'paid'
+    });
+    if (isPurchased) purchasedBookIds = [id];
+  }
+
+  return transformBookResponse(result, req.user, purchasedBookIds);
 };
 
 //get book by bookcategory
@@ -168,8 +199,21 @@ const getBooksByCategory = async (req: any) => {
   const { page = 1, limit = 10 } = req.query;
   const { skip } = paginationHelper(page, limit);
 
+  // Check purchase status
+  let purchasedBookIds: string[] = [];
+  if (req.user && req.user.role !== 'admin') {
+    const purchased = await Order.find({
+      userId: req.user.id,
+      paymentStatus: 'paid'
+    }).distinct('items.book');
+    purchasedBookIds = (purchased as any).map((id: any) => id.toString());
+  }
+
   const total = await Book.countDocuments({ genre: category });
-  const data = await Book.find({ genre: category }).skip(skip).limit(limit);
+  const data = await Book.find({ genre: category }).skip(skip).limit(limit).lean();
+  
+  const transformedData = transformBookResponse(data, req.user, purchasedBookIds);
+
   const meta = {
     total,
     page: Number(page),
@@ -177,7 +221,7 @@ const getBooksByCategory = async (req: any) => {
     totalPage: Math.ceil(total / Number(limit)),
   };
 
-  return { data, meta };
+  return { data: transformedData, meta };
 };
 
 //update a book by id

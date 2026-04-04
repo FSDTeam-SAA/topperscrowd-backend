@@ -1,7 +1,6 @@
 import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
 import config from "../config";
-import logger from "../logger";
 import AppError from "../errors/AppError";
 
 // configure Cloudinary
@@ -36,7 +35,7 @@ export const uploadToCloudinary = async (filePath: string, folder: string) => {
 // delete file
 export const deleteFromCloudinary = async (
   publicId: string,
-  resourceType: "image" | "video" | "raw" = "image"
+  resourceType: "image" | "video"
 ) => {
   try {
     await cloudinary.uploader.destroy(publicId, {

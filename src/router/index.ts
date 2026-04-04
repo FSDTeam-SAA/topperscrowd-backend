@@ -10,6 +10,7 @@ import { CouponRouter } from "../modules/coupon/coupon.routes";
 import { CartRouter } from "../modules/cart/cart.routes";
 import reviewRouter from "../modules/review/review.router";
 import { AdminDashboardRoutes } from "../modules/adminDashboard/adminDashboard.routes";
+import listenerProgressRouter from "../modules/listenerProgress/listenerProgress.router";
 
 const router = Router();
 
@@ -50,6 +51,10 @@ const moduleRoutes = [
   {
     path: "/admin-dashboard",
     route: AdminDashboardRoutes,
+  },
+  {
+    path: "/listener-progress",
+    route: listenerProgressRouter,
   },
 ];
 
