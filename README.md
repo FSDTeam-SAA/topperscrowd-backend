@@ -24,11 +24,13 @@ ToppersCrowd is built using modern Software Engineering principles emphasizing *
 
 - 🛡️ **End-to-End Type Safety:** 100% strict TypeScript configuration validated through **Zod** payload schemas.
 - 🔒 **Ironclad Security:** Robust defenses using automated rate limiting, `helmet` HTTP headers, parameterized queries mapping (`express-mongo-sanitize`), XSS cleaning (`xss-clean`), and HTTP parameter pollution prevention (`hpp`).
-- 💳 **Advanced Stripe Orders & Cron Cleanup:** A robust background `node-cron` task continuously scans pending orders, validates external Stripe Checkout expiration sessions natively, and seamlessly finalizes or auto-cancels ghost carts, preventing overlap errors.
-- 📚 **Dynamic Books:** Book models automatically validate dependencies via pre-save middlewares (e.g. `BookCategory` mapping), deeply integrate metrics for `saleCount` / `averageRating`, and support dual media tracking for `audio` and `image` formats via Cloudinary.
-- 🛒 **Unique Cart Tracking:** Each user owns a unique, isolated cart instance calculating live aggregated state updates (item specific `quantity` to generic `totalPrice`).
+- 💳 **Advanced Stripe Orders (Bulk Support):** A robust background system featuring atomicity for multiple items per order. An automated `node-cron` task continuously scans pending orders, validates Stripe session expiration, and auto-cancels "ghost" carts.
+- 📚 **Dynamic Books:** Book models automatically validate dependencies via pre-save middlewares, deeply integrate metrics for `saleCount` / `averageRating`, and support dual media tracking for `audio` and `image` formats via Cloudinary.
+- 🛒 **Unique Cart Tracking:** Each user owns a unique, isolated cart instance with real-time aggregated state updates (live `totalPrice` calculation).
 - 💬 **Real-Time Communication:** **Socket.io** powered live chatrooms for interactive user engagement and collaboration.
-- 🏷️ **Smart Discounting System:** A native Coupon module tailored to user identification, enabling strategic, targeted marketing via `Nodemailer`.
+- 📖 **Personalized Library & Favorites:** Dedicated modules for managing purchased digital content and bookmarked books, offering a seamless user-centric experience.
+- 🎧 **Audiobook Persistence:** Native `Listener Progress` tracking that automatically saves playback positions, allowing users to resume exactly where they left off.
+- 🏷️ **Smart Discounting System:** Native Coupon module enabling strategic, targeted marketing via `Nodemailer`.
 - 📊 **Observability & Logging:** Structured performant logging using **Pino** and `pino-http`, ensuring full visibility into request life-cycles and backend operations.
 
 ---
@@ -62,10 +64,13 @@ Base Prefix: `/api/v1` *(Standardized)*
 | **Categories** | `/bookcategory` | Taxonomy & relationships for organizing books. |
 | **Reviews** | `/review` | Independent review systems mapped to specific resources. |
 | **Carts** | `/cart` | Dynamic cart state tracking, updates, and validations. |
-| **Orders** | `/order` | Securing checkout state, Stripe flows, and final invoicing. |
+| **Orders** | `/order` | Securing checkout state, Stripe flows, and final invoicing (bulk support). |
 | **Coupons** | `/coupon` | System for discounts, calculating valid codes and expiries. |
+| **Favorites** | `/favorite` | Personal book bookmarking and management. |
+| **Library** | `/library` | User-specific purchased digital content and listening stats. |
+| **Listener Progress**| `/listener-progress`| Real-time tracking and persistence of audiobook playback positions. |
 | **Chatrooms** | `/chatroom` | Interactions connecting internal socket ecosystems. |
-| **Admin** | `/admin-dashboard` | Analytical overviews and strict role-gated master endpoints. |
+| **Admin** | `/admin-dashboard` | Statistical overviews and management of Users, Audio content, and Reviews. |
 
 ---
 
