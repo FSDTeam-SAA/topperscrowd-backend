@@ -44,3 +44,19 @@ export default {
     maxOrderAgeHours: Number(process.env.MAX_ORDER_AGE_HOURS) || 24,
   }
 };
+
+// --- Validation ---
+const requiredEnvVars = [
+  { name: 'MONGODB_URL', val: process.env.MONGODB_URL },
+  { name: 'STRIPE_SECRET_KEY', val: process.env.STRIPE_SECRET_KEY },
+  { name: 'JWT_SECRET', val: process.env.JWT_SECRET },
+];
+
+requiredEnvVars.forEach((env) => {
+  if (!env.val) {
+    console.error(`\x1b[31m[ERROR] Missing environment variable: ${env.name}\x1b[0m`);
+    console.error(`Please add ${env.name} to your Render Environment Variables.\n`);
+    // We throw a clear error here so the app stops with a helpful message
+    throw new Error(`CRITICAL: ${env.name} is not defined in environment variables.`);
+  }
+});
