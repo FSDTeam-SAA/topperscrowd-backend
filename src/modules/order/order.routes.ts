@@ -28,6 +28,18 @@ router.get(
 );
 
 router.get(
+  '/get-all-orders',
+  auth(USER_ROLE.ADMIN),
+  OrderController.getAllOrders
+);
+
+router.get(
+  '/get-order/:orderId',
+  auth(USER_ROLE.ADMIN),
+  OrderController.getSingleOrder
+);
+
+router.get(
   '/:orderId',
   auth(USER_ROLE.USER),
   OrderController.getOrderById

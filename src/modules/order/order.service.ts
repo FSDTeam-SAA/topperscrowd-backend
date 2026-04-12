@@ -7,6 +7,7 @@ import { Coupon } from '../coupon/coupon.model';
 import Stripe from 'stripe';
 import config from '../../config';
 import mongoose from 'mongoose';
+import { paginationHelper } from '../../utils/pafinationHelper';
 
 const stripe = new Stripe(config.stripe.secretKey as string, {
   // @ts-ignore
@@ -255,10 +256,132 @@ const getOrderById = async (userId: string, orderId: string) => {
   return order;
 };
 
+const orderBookPopulate = {
+  path: 'items.book',
+  select: '_id title description author genre price language publisher publicationYear',
+  populate: {
+    path: 'genre',
+    select: 'title',
+  },
+};
+
+const getAllOrders = async (req: any) => {
+  const {
+    page = 1,
+    limit = 10,
+    search,
+    paymentStatus = 'all',
+    from,
+    to,
+    userId,
+    sort = 'descending',
+  } = req.query;
+
+  const { skip, limit: perPage } = paginationHelper(page, limit);
+  const filter: any = {};
+
+  if (search) {
+    const searchRegex = new RegExp(search as string, 'i');
+    filter.$or = [
+      { stripeSessionId: searchRegex },
+      { transactionId: searchRegex },
+    ];
+  }
+
+  if (paymentStatus && paymentStatus !== 'all') {
+    const allowedStatuses = ['pending', 'paid', 'cancelled'];
+    if (!allowedStatuses.includes(paymentStatus as string)) {
+      throw new AppError("Invalid paymentStatus. Must be 'pending', 'paid', 'cancelled', or 'all'", httpStatus.BAD_REQUEST);
+    }
+    filter.paymentStatus = paymentStatus;
+  }
+
+  if (userId) {
+    if (!mongoose.isValidObjectId(userId)) throw new AppError('Invalid user id', httpStatus.BAD_REQUEST);
+    filter.userId = userId;
+  }
+
+  if (from || to) {
+    const isValidDate = (date: any) => {
+      const d = new Date(date);
+      return !isNaN(d.getTime());
+    };
+
+    if (from && !isValidDate(from)) {
+      throw new AppError("Invalid 'from' date. Format must be YYYY-MM-DD or ISO (e.g., 2024-01-01)", httpStatus.BAD_REQUEST);
+    }
+
+    if (to && !isValidDate(to)) {
+      throw new AppError("Invalid 'to' date. Format must be YYYY-MM-DD or ISO (e.g., 2024-01-01)", httpStatus.BAD_REQUEST);
+    }
+
+    if (from && to && new Date(from as string) > new Date(to as string)) {
+      throw new AppError("'from' date cannot be greater than 'to' date", httpStatus.BAD_REQUEST);
+    }
+
+    filter.createdAt = {};
+
+    if (from) {
+      const fromDate = new Date(from as string);
+      fromDate.setHours(0, 0, 0, 0);
+      filter.createdAt.$gte = fromDate;
+    }
+
+    if (to) {
+      const toDate = new Date(to as string);
+      toDate.setHours(23, 59, 59, 999);
+      filter.createdAt.$lte = toDate;
+    }
+  }
+
+  if (sort && sort !== 'ascending' && sort !== 'descending') {
+    throw new AppError("Invalid sort value. Must be 'ascending' or 'descending'", httpStatus.BAD_REQUEST);
+  }
+
+  const sortOrder = sort === 'ascending' ? 1 : -1;
+
+  const [data, total] = await Promise.all([
+    Order.find(filter)
+      .skip(skip)
+      .limit(Number(perPage))
+      .sort({ createdAt: sortOrder })
+      .populate('userId', 'name email image role')
+      .populate(orderBookPopulate)
+      .populate('appliedCoupon')
+      .lean(),
+    Order.countDocuments(filter),
+  ]);
+
+  return {
+    data,
+    meta: {
+      total,
+      page: Number(page),
+      limit: Number(perPage),
+      totalPage: Math.ceil(total / Number(perPage)),
+    },
+  };
+};
+
+const getSingleOrder = async (orderId: string) => {
+  if (!mongoose.isValidObjectId(orderId)) throw new AppError('Invalid order id', httpStatus.BAD_REQUEST);
+
+  const order = await Order.findById(orderId)
+    .populate('userId', 'name email image role')
+    .populate(orderBookPopulate)
+    .populate('appliedCoupon')
+    .lean();
+
+  if (!order) throw new AppError('Order not found', httpStatus.NOT_FOUND);
+  return order;
+};
+
 export const OrderService = {
   createCheckoutSession,
   verifyPayment,
   finalizeOrder, // exported for cron job
   getMyOrders,
   getOrderById,
+  getAllOrders,
+  getSingleOrder,
 };
