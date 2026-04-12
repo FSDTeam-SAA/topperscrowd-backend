@@ -7,8 +7,8 @@ import hpp from "hpp";
 
 // Global rate limiter
 const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 min
-  max: 150,
+  windowMs: 5 * 60 * 1000, // 15 min
+  max: 250,
   standardHeaders: true,
   legacyHeaders: false,
   message: "Too many requests, try again later.",
