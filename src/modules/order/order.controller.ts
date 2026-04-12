@@ -41,6 +41,31 @@ const getMyOrders = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getAllOrders = catchAsync(async (req: Request, res: Response) => {
+  const { data, meta } = await OrderService.getAllOrders(req);
+  const message = data.length > 0 ? 'Orders retrieved successfully' : 'No orders found';
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message,
+    data,
+    meta,
+  });
+});
+
+const getSingleOrder = catchAsync(async (req: Request, res: Response) => {
+  const { orderId } = req.params;
+  const result = await OrderService.getSingleOrder(orderId);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Order retrieved successfully',
+    data: result,
+  });
+});
+
 const getOrderById = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user.id;
   const { orderId } = req.params;
@@ -59,4 +84,6 @@ export const OrderController = {
   verifyPayment,
   getMyOrders,
   getOrderById,
+  getAllOrders,
+  getSingleOrder,
 };
