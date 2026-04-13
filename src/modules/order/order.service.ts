@@ -141,7 +141,7 @@ const createCheckoutSession = async (
     discounts: stripeCouponId ? [{ coupon: stripeCouponId }] : undefined,
     mode: 'payment',
     //expires_at: Math.floor(Date.now() / 1000) + (config.cron.orderExpiryMinutes * 60), // Match internal cleanup window
-    success_url: `${config.clientUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+    success_url: `${config.clientUrl}/payment-success`,
     cancel_url: `${config.clientUrl}/payment/cancel`,
     client_reference_id: order._id.toString(),
     metadata: {
