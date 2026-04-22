@@ -6,7 +6,7 @@ import { IBook } from "./book.interface";
 import Book from "./book.model";
 import config from "../../config";
 import { Order } from "../order/order.model";
-import { transformBookResponse } from "./book.utils";
+import { transformBookResponse, transformBookResponseWithThumbnail } from "./book.utils";
 
 //create a new book
 const createBook = async (req: any) => {
@@ -158,7 +158,7 @@ const getAllBooks = async (req: any) => {
   ]);
 
   // 3. Transform response based on purchase status
-  const transformedData = transformBookResponse(data, req.user, purchasedBookIds);
+  const transformedData = transformBookResponseWithThumbnail(data, req.user, purchasedBookIds);
 
   return {
     data: transformedData,
@@ -212,7 +212,7 @@ const getBooksByCategory = async (req: any) => {
   const total = await Book.countDocuments({ genre: category });
   const data = await Book.find({ genre: category }).skip(skip).limit(limit).lean();
   
-  const transformedData = transformBookResponse(data, req.user, purchasedBookIds);
+  const transformedData = transformBookResponseWithThumbnail(data, req.user, purchasedBookIds);
 
   const meta = {
     total,
