@@ -3,7 +3,7 @@ import ListenerProgress from "../listenerProgress/listenerProgress.model";
 import Review from "../review/review.model";
 import { Favorite } from "../favorite/favorite.model";
 import { paginationHelper } from "../../utils/pafinationHelper";
-import { transformBookResponse } from "../book/book.utils";
+import { transformBookResponse, transformBookResponseWithThumbnail } from "../book/book.utils";
 import mongoose from "mongoose";
 import Book from "../book/book.model";
 
@@ -106,7 +106,7 @@ const getRecentPurchases = async (userId: string, user: any) => {
     return transformBookResponse(books, user, purchasedBookIds);
 };
 
-const getMyBooks = async (userId: string, page: string, limit: string) => {
+const getMyBooks = async (userId: string, user: any, page: string, limit: string) => {
   const { skip, limit: perPage, page: currentPage } = paginationHelper(page, limit);
 
   const purchasedBookIds = await Order.find({ 
@@ -116,7 +116,6 @@ const getMyBooks = async (userId: string, page: string, limit: string) => {
 
   const [books, total] = await Promise.all([
     Book.find({ _id: { $in: purchasedBookIds } })
-      .select("-image -audio") // Exclude image and audio fields
       .skip(skip)
       .limit(perPage)
       .sort({ createdAt: -1 })
@@ -137,7 +136,10 @@ const getMyBooks = async (userId: string, page: string, limit: string) => {
     return acc;
   }, {});
 
-  const data = books.map((book: any) => ({
+  // Transform books to include thumbnails and handle conditional field visibility
+  const transformedBooks = transformBookResponseWithThumbnail(books, user, purchasedBookIds.map(id => id.toString()));
+
+  const data = (Array.isArray(transformedBooks) ? transformedBooks : [transformedBooks]).map((book: any) => ({
     ...book,
     myRating: reviewMap[book._id.toString()] || null
   }));
