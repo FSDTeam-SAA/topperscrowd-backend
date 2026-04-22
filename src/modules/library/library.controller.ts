@@ -35,7 +35,7 @@ const getRecentPurchases = catchAsync(async (req, res) => {
 
 const getMyBooks = catchAsync(async (req, res) => {
   const { page, limit } = req.query;
-  const { data, meta } = await libraryService.getMyBooks(req.user.id, page as string, limit as string);
+  const { data, meta } = await libraryService.getMyBooks(req.user.id, req.user, page as string, limit as string);
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
