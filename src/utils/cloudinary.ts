@@ -46,3 +46,14 @@ export const deleteFromCloudinary = async (
     throw new Error("Failed to delete file from Cloudinary");
   }
 };
+
+/**
+ * Transforms a Cloudinary URL to a thumbnail (300px width).
+ * @param url The original Cloudinary secure_url
+ * @returns The transformed URL with w_300,c_scale
+ */
+export const getCloudinaryThumbnailUrl = (url: string) => {
+  if (!url) return url;
+  // insert /w_300,c_scale/ after /upload/
+  return url.replace("/upload/", "/upload/w_300,c_scale/");
+};
