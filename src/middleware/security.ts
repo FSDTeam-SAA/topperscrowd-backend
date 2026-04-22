@@ -30,6 +30,7 @@ const corsOptions = {
     "http://localhost:3001",
     "https://topperscrowd-frontend.vercel.app",
     "https://kathorianpublishingllc.com",
+    "https://www.kathorianpublishingllc.com",
   ],
   methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE"],
   credentials: true,
