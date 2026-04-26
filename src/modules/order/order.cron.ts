@@ -1,78 +1,84 @@
-import cron from 'node-cron';
-import { Order } from './order.model';
-import { OrderService } from './order.service';
-import Stripe from 'stripe';
-import config from '../../config';
-import logger from '../../logger';
-import { createCronTask, ITaskResult } from '../../utils/cronRunner';
+import cron from "node-cron";
+import { Order } from "./order.model";
+import { OrderService } from "./order.service";
+import { paypalRequest } from "../../utils/paypal";
+import config from "../../config";
+import logger from "../../logger";
+import { createCronTask, ITaskResult } from "../../utils/cronRunner";
 
-const stripe = new Stripe(config.stripe.secretKey!, {
-  // @ts-ignore
-  apiVersion: '2023-10-16',
-});
+const cleanupPendingOrders = createCronTask(
+  "OrderCleanup",
+  async (): Promise<ITaskResult> => {
+    const result: ITaskResult = {
+      totalScanned: 0,
+      processed: 0,
+      skipped: 0,
+      failed: 0,
+    };
 
-/**
- * Verifies pending Stripe Checkout orders.
- * Paid sessions are finalized as soon as the cron sees them; the expiry window is
- * only used to decide when an unpaid open session can be cancelled locally.
- */
-const cleanupPendingOrders = createCronTask('OrderCleanup', async (): Promise<ITaskResult> => {
-  const result: ITaskResult = { totalScanned: 0, processed: 0, skipped: 0, failed: 0 };
-  
-  const now = new Date();
-  const expiryWindow = config.cron.orderExpiryMinutes * 60 * 1000;
-  const maxAgeWindow = config.cron.maxOrderAgeHours * 60 * 60 * 1000;
+    const now = new Date();
+    const expiryWindow = config.cron.orderExpiryMinutes * 60 * 1000;
+    const maxAgeWindow = config.cron.maxOrderAgeHours * 60 * 60 * 1000;
+    const maxAgeDate = new Date(now.getTime() - maxAgeWindow);
 
-  const maxAgeDate = new Date(now.getTime() - maxAgeWindow);
+    // ✅ stripeSessionId → paypalOrderId
+    const pendingOrders = await Order.find({
+      paymentStatus: "pending",
+      createdAt: { $gte: maxAgeDate },
+      paypalOrderId: { $exists: true, $ne: null },
+    });
 
-  // Scan all recent pending Stripe sessions so paid orders do not wait for the
-  // expiry window before being finalized.
-  const pendingOrders = await Order.find({
-    paymentStatus: 'pending',
-    createdAt: {
-      $gte: maxAgeDate,
-    },
-    stripeSessionId: { $exists: true, $ne: null },
-  });
+    result.totalScanned = pendingOrders.length;
+    if (pendingOrders.length === 0) return result;
 
-  result.totalScanned = pendingOrders.length;
-  if (pendingOrders.length === 0) return result;
+    for (const order of pendingOrders) {
+      try {
+        if (!order.paypalOrderId) {
+          result.skipped++;
+          continue;
+        }
 
-  for (const order of pendingOrders) {
-    try {
-      if (!order.stripeSessionId) {
-        result.skipped++;
-        continue;
+        // ✅ PayPal order status check
+        const paypalOrder = await paypalRequest<{
+          status: string;
+          purchase_units: {
+            payments?: {
+              captures?: { id: string; status: string }[];
+            };
+          }[];
+        }>("GET", `/v2/checkout/orders/${order.paypalOrderId}`);
+
+        const captureId =
+          paypalOrder.purchase_units?.[0]?.payments?.captures?.[0]?.id;
+
+        if (paypalOrder.status === "COMPLETED") {
+          // ✅ Stripe paid → PayPal COMPLETED
+          await OrderService.finalizeOrder(order, captureId);
+          result.processed++;
+        } else if (
+          paypalOrder.status === "VOIDED" ||
+          (paypalOrder.status === "CREATED" &&
+            order.createdAt &&
+            now.getTime() - order.createdAt.getTime() >= expiryWindow)
+        ) {
+          // ✅ Stripe expired/unpaid → PayPal VOIDED বা expiry পেরিয়ে গেলে cancel
+          order.paymentStatus = "cancelled";
+          await order.save();
+          result.processed++;
+        } else {
+          result.skipped++;
+        }
+      } catch (err: any) {
+        result.failed++;
+        logger.error(
+          `[OrderCleanup] Failed to process order ${order._id}: ${err.message}`,
+        );
       }
-
-      const session = await stripe.checkout.sessions.retrieve(order.stripeSessionId);
-
-      if (session.payment_status === 'paid') {
-        await OrderService.finalizeOrder(order, session);
-        result.processed++;
-      } else if (
-        session.status === 'expired' ||
-        (
-          session.status === 'open' &&
-          session.payment_status === 'unpaid' &&
-          order.createdAt &&
-          now.getTime() - order.createdAt.getTime() >= expiryWindow
-        )
-      ) {
-        order.paymentStatus = 'cancelled';
-        await order.save();
-        result.processed++;
-      } else {
-        result.skipped++;
-      }
-    } catch (err: any) {
-      result.failed++;
-      logger.error(`[OrderCleanup] Failed to process order ${order._id}:`, err.message);
     }
-  }
 
-  return result;
-});
+    return result;
+  },
+);
 
 export const initOrderCron = () => {
   cron.schedule(config.cron.checkInterval, cleanupPendingOrders);

@@ -1,8 +1,8 @@
-import { Types } from 'mongoose';
+import { Types } from "mongoose";
 
 export interface IOrderItem {
   book: Types.ObjectId;
-  price: number; 
+  price: number;
   quantity: number;
 }
 
@@ -10,9 +10,10 @@ export interface IOrder {
   userId: Types.ObjectId;
   items: IOrderItem[];
   totalAmount: number;
-  paymentStatus: 'pending' | 'paid' | 'cancelled';
-  stripeSessionId?: string;
-  transactionId?: string;
+  paymentStatus: "pending" | "paid" | "cancelled";
+
+  paypalOrderId?: string;
+  transactionId?: string; // PayPal capture ID store হবে এখানে
   appliedCoupon?: Types.ObjectId;
   createdAt?: Date;
   updatedAt?: Date;
