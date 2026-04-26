@@ -1,28 +1,37 @@
-import httpStatus from 'http-status';
-import AppError from '../../errors/AppError';
-import { Order } from './order.model';
-import Book from '../book/book.model';
-import { Cart } from '../cart/cart.model';
-import { Coupon } from '../coupon/coupon.model';
-import Stripe from 'stripe';
-import config from '../../config';
-import mongoose from 'mongoose';
-import { paginationHelper } from '../../utils/pafinationHelper';
+import httpStatus from "http-status";
+import AppError from "../../errors/AppError";
+import { Order } from "./order.model";
+import Book from "../book/book.model";
+import { Cart } from "../cart/cart.model";
+import { Coupon } from "../coupon/coupon.model";
+import mongoose from "mongoose";
+import { paginationHelper } from "../../utils/pafinationHelper";
+import { paypalRequest } from "../../utils/paypal";
+import config from "../../config";
 
-const stripe = new Stripe(config.stripe.secretKey as string, {
-  // @ts-ignore
-  apiVersion: '2023-10-16',
-});
+// ─── Helpers (unchanged from Stripe version) ────────────────────────────────
 
-const buildCheckoutItems = async (userId: string, bookId?: string, quantity: number = 1) => {
-  const itemsToCheckout: { book: mongoose.Types.ObjectId; price: number; quantity: number }[] = [];
+const buildCheckoutItems = async (
+  userId: string,
+  bookId?: string,
+  quantity: number = 1,
+) => {
+  const itemsToCheckout: {
+    book: mongoose.Types.ObjectId;
+    price: number;
+    quantity: number;
+  }[] = [];
   let totalAmount = 0;
   const bookIdsToCheck: string[] = [];
 
   if (bookId) {
     const book = await Book.findById(bookId);
-    if (!book) throw new AppError('Book not found', httpStatus.NOT_FOUND);
-    if (book.status !== 'active') throw new AppError('This book is currently unavailable for purchase', httpStatus.BAD_REQUEST);
+    if (!book) throw new AppError("Book not found", httpStatus.NOT_FOUND);
+    if (book.status !== "active")
+      throw new AppError(
+        "This book is currently unavailable for purchase",
+        httpStatus.BAD_REQUEST,
+      );
 
     itemsToCheckout.push({
       book: new mongoose.Types.ObjectId(bookId),
@@ -32,15 +41,17 @@ const buildCheckoutItems = async (userId: string, bookId?: string, quantity: num
     totalAmount = book.price * quantity;
     bookIdsToCheck.push(bookId);
   } else {
-    const cart = await Cart.findOne({ user: userId }).populate('items.book');
-    if (!cart || cart.items.length === 0) {
-      throw new AppError('Cart is empty', httpStatus.BAD_REQUEST);
-    }
+    const cart = await Cart.findOne({ user: userId }).populate("items.book");
+    if (!cart || cart.items.length === 0)
+      throw new AppError("Cart is empty", httpStatus.BAD_REQUEST);
 
     for (const item of cart.items) {
-      const bookData = item.book as any; // populated book
-      if (!bookData || bookData.status !== 'active') {
-        throw new AppError(`'${bookData?.title || 'One or more items'}' is no longer available`, httpStatus.BAD_REQUEST);
+      const bookData = item.book as any;
+      if (!bookData || bookData.status !== "active") {
+        throw new AppError(
+          `'${bookData?.title || "One or more items"}' is no longer available`,
+          httpStatus.BAD_REQUEST,
+        );
       }
       itemsToCheckout.push({
         book: new mongoose.Types.ObjectId(String(bookData._id)),
@@ -55,214 +66,220 @@ const buildCheckoutItems = async (userId: string, bookId?: string, quantity: num
   return { itemsToCheckout, totalAmount, bookIdsToCheck };
 };
 
-const applyCouponDiscount = async (userId: string, couponCode?: string) => {
-  if (!couponCode) return { appliedCouponId: undefined, stripeCouponId: undefined };
-
-  const coupon = await Coupon.findOne({ codeName: couponCode, assignedTo: userId });
-  if (!coupon) {
-    throw new AppError('Invalid coupon code', httpStatus.BAD_REQUEST);
-  }
-  if (coupon.expiryDate < new Date()) {
-    throw new AppError('Coupon has expired', httpStatus.BAD_REQUEST);
-  }
-  if (coupon.usedCount >= coupon.usesLimit) {
-    throw new AppError('Coupon usage limit reached', httpStatus.BAD_REQUEST);
-  }
-
-  let stripeCouponId;
-  if (coupon.discountType === 'percentage') {
-    const stripeCoupon = await stripe.coupons.create({
-      percent_off: coupon.discountAmount,
-      duration: 'once',
-    });
-    stripeCouponId = stripeCoupon.id;
-  } else {
-    const stripeCoupon = await stripe.coupons.create({
-      amount_off: Math.round(coupon.discountAmount * 100),
-      currency: 'usd',
-      duration: 'once',
-    });
-    stripeCouponId = stripeCoupon.id;
-  }
-  return { appliedCouponId: coupon._id, stripeCouponId };
-};
-
-const createCheckoutSession = async (
+const applyCouponDiscount = async (
   userId: string,
-  payload: { bookId?: string; quantity?: number; couponCode?: string }
-) => {
-  const { bookId, quantity = 1, couponCode } = payload;
+  couponCode?: string,
+): Promise<{
+  appliedCouponId?: mongoose.Types.ObjectId;
+  discountAmount: number;
+}> => {
+  if (!couponCode) return { appliedCouponId: undefined, discountAmount: 0 };
 
-  // 1. Snapshot Prices & Cart Integrity
-  const { itemsToCheckout, totalAmount, bookIdsToCheck } = await buildCheckoutItems(userId, bookId, quantity);
-
-  // Apply Coupon
-  const { appliedCouponId, stripeCouponId } = await applyCouponDiscount(userId, couponCode);
-
-  // 1a. Duplicate Ownership Check
-  const existingOrder = await Order.findOne({
-    userId,
-    'items.book': { $in: bookIdsToCheck },
-    paymentStatus: 'paid',
+  const coupon = await Coupon.findOne({
+    codeName: couponCode,
+    assignedTo: userId,
   });
-
-  if (existingOrder) {
-    throw new AppError('You have already purchased one or more of these books', httpStatus.BAD_REQUEST);
-  }
-
-  // 2. Draft Phase (Persistent Intent)
-  const order = await Order.create({
-    userId,
-    items: itemsToCheckout,
-    totalAmount,
-    paymentStatus: 'pending',
-    appliedCoupon: appliedCouponId,
-  });
-
-  // 3. Stripe Session Initiation
-  const lineItems = await Promise.all(itemsToCheckout.map(async (item) => {
-    const book = await Book.findById(item.book);
-    return {
-      price_data: {
-        currency: 'usd',
-        product_data: {
-          name: book?.title || 'Audiobook Purchase',
-          description: book?.author ? `By ${book.author}` : undefined,
-        },
-        unit_amount: Math.round(item.price * 100),
-      },
-      quantity: item.quantity,
-    };
-  }));
-
-  const session = await stripe.checkout.sessions.create({
-    payment_method_types: ['card'],
-    line_items: lineItems,
-    discounts: stripeCouponId ? [{ coupon: stripeCouponId }] : undefined,
-    mode: 'payment',
-    //expires_at: Math.floor(Date.now() / 1000) + (config.cron.orderExpiryMinutes * 60), // Match internal cleanup window
-    success_url: `${config.clientUrl}/payment-success`,
-    cancel_url: `${config.clientUrl}/payment/cancel`,
-    client_reference_id: order._id.toString(),
-    metadata: {
-      userId: userId.toString(),
-      orderId: order._id.toString(),
-    },
-  });
-
-  // Update order with session ID
-  order.stripeSessionId = session.id;
-  await order.save();
+  if (!coupon)
+    throw new AppError("Invalid coupon code", httpStatus.BAD_REQUEST);
+  if (coupon.expiryDate < new Date())
+    throw new AppError("Coupon has expired", httpStatus.BAD_REQUEST);
+  if (coupon.usedCount >= coupon.usesLimit)
+    throw new AppError("Coupon usage limit reached", httpStatus.BAD_REQUEST);
 
   return {
-    checkoutUrl: session.url,
-    orderId: order._id,
-    stripeSessionId: session.id,
-    totalAmount: order.totalAmount,
+    appliedCouponId: coupon._id as mongoose.Types.ObjectId,
+    discountAmount: coupon.discountAmount,
   };
 };
 
-const verifyPayment = async (userId: string, sessionId: string) => {
-  const session = await stripe.checkout.sessions.retrieve(sessionId);
+// ─── Core Services ───────────────────────────────────────────────────────────
 
-  // 7. Security Handshake (Metadata Matching)
-  if (session.metadata?.userId !== userId.toString()) {
-    throw new AppError('Unauthorized verification attempt', httpStatus.UNAUTHORIZED);
+const createCheckoutSession = async (
+  userId: string,
+  payload: { bookId?: string; quantity?: number; couponCode?: string },
+) => {
+  const { bookId, quantity = 1, couponCode } = payload;
+
+  const { itemsToCheckout, totalAmount, bookIdsToCheck } =
+    await buildCheckoutItems(userId, bookId, quantity);
+
+  const { appliedCouponId, discountAmount } = await applyCouponDiscount(
+    userId,
+    couponCode,
+  );
+
+  // Duplicate ownership check
+  const existingOrder = await Order.findOne({
+    userId,
+    "items.book": { $in: bookIdsToCheck },
+    paymentStatus: "paid",
+  });
+  if (existingOrder) {
+    throw new AppError(
+      "You have already purchased one or more of these books",
+      httpStatus.BAD_REQUEST,
+    );
   }
 
-  const orderId = session.metadata?.orderId;
+  // ✅ Final amount after coupon (PayPal এ coupon object নেই, amount এ কাটতে হয়)
+  const finalAmount = Math.max(0, totalAmount - discountAmount);
 
-  if (!orderId) {
-    throw new AppError('Order ID not found in session metadata', httpStatus.BAD_REQUEST);
+  // Draft order create
+  const order = await Order.create({
+    userId,
+    items: itemsToCheckout,
+    totalAmount: finalAmount,
+    paymentStatus: "pending",
+    appliedCoupon: appliedCouponId,
+  });
+
+  // ✅ PayPal order create
+  const paypalOrder = await paypalRequest<{
+    id: string;
+    links: { href: string; rel: string }[];
+  }>("POST", "/v2/checkout/orders", {
+    intent: "CAPTURE",
+    purchase_units: [
+      {
+        reference_id: order._id.toString(),
+        custom_id: userId,
+        amount: {
+          currency_code: "USD",
+          value: finalAmount.toFixed(2),
+        },
+        description: `ToppersCrowd — ${itemsToCheckout.length} book(s)`,
+      },
+    ],
+    application_context: {
+      return_url: `${config.clientUrl}/payment-success`,
+      cancel_url: `${config.clientUrl}/payment/cancel`,
+      brand_name: "ToppersCrowd",
+      user_action: "PAY_NOW",
+    },
+  });
+
+  // ✅ paypalOrderId save করা হচ্ছে (Stripe এ stripeSessionId ছিল)
+  order.paypalOrderId = paypalOrder.id;
+  await order.save();
+
+  const approveLink = paypalOrder.links.find((l) => l.rel === "approve");
+
+  return {
+    approveUrl: approveLink?.href, // Client এখানে redirect করবে
+    orderId: order._id,
+    paypalOrderId: paypalOrder.id,
+    totalAmount: finalAmount,
+  };
+};
+
+// ✅ Client approve করার পরে এই endpoint call হবে
+const capturePayment = async (userId: string, paypalOrderId: string) => {
+  const order = await Order.findOne({ paypalOrderId, userId });
+  if (!order) throw new AppError("Order not found", httpStatus.NOT_FOUND);
+
+  if (order.paymentStatus === "paid") {
+    return { status: "success", message: "Payment was already captured" };
   }
 
-  const order = await Order.findById(orderId);
-  if (!order) {
-    throw new AppError('Order not found', httpStatus.NOT_FOUND);
+  // ✅ PayPal capture API call
+  const capture = await paypalRequest<{
+    status: string;
+    purchase_units: {
+      payments: {
+        captures: { id: string; status: string }[];
+      };
+    }[];
+  }>("POST", `/v2/checkout/orders/${paypalOrderId}/capture`, {});
+
+  if (capture.status === "COMPLETED") {
+    const captureId = capture.purchase_units?.[0]?.payments?.captures?.[0]?.id;
+    await finalizeOrder(order, captureId);
+    return { status: "success", message: "Payment captured successfully" };
   }
 
-  // 4a. Atomic Check (already paid)
-  if (order.paymentStatus === 'paid') {
-    return { status: 'success', message: 'Payment was already verified' };
-  }
-
-  // 4b. Verify Stripe Status
-  if (session.payment_status === 'paid') {
-    await finalizeOrder(order, session);
-    return { status: 'success', message: 'Payment successful' };
-  } else {
-    throw new AppError('Payment not completed', httpStatus.BAD_REQUEST);
-  }
+  throw new AppError(
+    `PayPal capture status: ${capture.status}`,
+    httpStatus.BAD_REQUEST,
+  );
 };
 
 /**
- * Shared finalization logic for both synchronous verification and async cron job
+ * Shared finalization logic — used by:
+ * 1. capturePayment (normal flow)
+ * 2. Webhook handler (PAYMENT.CAPTURE.COMPLETED)
+ * 3. Cron job (safety net)
  */
-const finalizeOrder = async (order: any, session: Stripe.Checkout.Session) => {
-  // 1. Atomic Idempotency Check
-  // We only proceed if the status is currently 'pending'. This prevents race conditions between Cron and Manual verify.
+const finalizeOrder = async (order: any, captureId?: string) => {
+  // ✅ Atomic idempotency check (Stripe version এর মতোই)
   const updatedOrder = await Order.findOneAndUpdate(
-    { _id: order._id, paymentStatus: 'pending' },
+    { _id: order._id, paymentStatus: "pending" },
     {
       $set: {
-        paymentStatus: 'paid',
-        transactionId: session.payment_intent as string
-      }
+        paymentStatus: "paid",
+        ...(captureId ? { transactionId: captureId } : {}),
+      },
     },
-    { new: true }
+    { new: true },
   );
 
-  if (!updatedOrder) {
-    // Order was already processed by another process (e.g., cron or concurrent request)
-    return;
-  }
+  if (!updatedOrder) return; // Already processed
 
-  // 6. Handling the Ghost Cart (Data Integrity) explicitly without orderType switch
-  const purchasedBookIds = new Set(order.items.map((item: any) => item.book.toString()));
-
-  // We fetch and update the cart manually instead of empty to preserve ghost items natively everywhere
-  const cart = await Cart.findOne({ user: order.userId }).populate('items.book');
+  // Cart cleanup
+  const purchasedBookIds = new Set(
+    order.items.map((item: any) => item.book.toString()),
+  );
+  const cart = await Cart.findOne({ user: order.userId }).populate(
+    "items.book",
+  );
   if (cart) {
-    cart.items = cart.items.filter((item: any) => item.book && !purchasedBookIds.has(item.book._id.toString()));
-
-    // Recalc Total
+    cart.items = cart.items.filter(
+      (item: any) =>
+        item.book && !purchasedBookIds.has(item.book._id.toString()),
+    );
     let total = 0;
     cart.items.forEach((item: any) => {
-      if (item.book) {
-        total += item.book.price * item.quantity;
-      }
+      if (item.book) total += item.book.price * item.quantity;
     });
     cart.totalPrice = total;
     await cart.save();
   }
 
-  // 7. Increment Book saleCount
+  // saleCount increment
   for (const item of order.items) {
-    await Book.findByIdAndUpdate(item.book, { $inc: { saleCount: item.quantity } });
+    await Book.findByIdAndUpdate(item.book, {
+      $inc: { saleCount: item.quantity },
+    });
   }
-  // 8. Increment Coupon usage if applied
+
+  // Coupon usage increment
   if (order.appliedCoupon) {
-    await Coupon.findByIdAndUpdate(order.appliedCoupon, { $inc: { usedCount: 1 } });
+    await Coupon.findByIdAndUpdate(order.appliedCoupon, {
+      $inc: { usedCount: 1 },
+    });
   }
 };
 
+// ─── Admin / User Query Services (unchanged) ────────────────────────────────
+
 const getMyOrders = async (userId: string) => {
-  return await Order.find({ userId }).populate('items.book').sort({ createdAt: -1 });
+  return await Order.find({ userId })
+    .populate("items.book")
+    .sort({ createdAt: -1 });
 };
 
 const getOrderById = async (userId: string, orderId: string) => {
-  const order = await Order.findOne({ _id: orderId, userId }).populate('items.book');
-  if (!order) throw new AppError('Order not found', httpStatus.NOT_FOUND);
+  const order = await Order.findOne({ _id: orderId, userId }).populate(
+    "items.book",
+  );
+  if (!order) throw new AppError("Order not found", httpStatus.NOT_FOUND);
   return order;
 };
 
 const orderBookPopulate = {
-  path: 'items.book',
-  select: '_id title description author genre price language publisher publicationYear',
-  populate: {
-    path: 'genre',
-    select: 'title',
-  },
+  path: "items.book",
+  select:
+    "_id title description author genre price language publisher publicationYear",
+  populate: { path: "genre", select: "title" },
 };
 
 const getAllOrders = async (req: any) => {
@@ -270,84 +287,78 @@ const getAllOrders = async (req: any) => {
     page = 1,
     limit = 10,
     search,
-    paymentStatus = 'all',
+    paymentStatus = "all",
     from,
     to,
     userId,
-    sort = 'descending',
+    sort = "descending",
   } = req.query;
 
   const { skip, limit: perPage } = paginationHelper(page, limit);
   const filter: any = {};
 
   if (search) {
-    const searchRegex = new RegExp(search as string, 'i');
+    const searchRegex = new RegExp(search as string, "i");
     filter.$or = [
-      { stripeSessionId: searchRegex },
+      { paypalOrderId: searchRegex }, // ✅ stripeSessionId → paypalOrderId
       { transactionId: searchRegex },
     ];
   }
 
-  if (paymentStatus && paymentStatus !== 'all') {
-    const allowedStatuses = ['pending', 'paid', 'cancelled'];
-    if (!allowedStatuses.includes(paymentStatus as string)) {
-      throw new AppError("Invalid paymentStatus. Must be 'pending', 'paid', 'cancelled', or 'all'", httpStatus.BAD_REQUEST);
-    }
+  if (paymentStatus && paymentStatus !== "all") {
+    const allowedStatuses = ["pending", "paid", "cancelled"];
+    if (!allowedStatuses.includes(paymentStatus as string))
+      throw new AppError(
+        "Invalid paymentStatus. Must be 'pending', 'paid', 'cancelled', or 'all'",
+        httpStatus.BAD_REQUEST,
+      );
     filter.paymentStatus = paymentStatus;
   }
 
   if (userId) {
-    if (!mongoose.isValidObjectId(userId)) throw new AppError('Invalid user id', httpStatus.BAD_REQUEST);
+    if (!mongoose.isValidObjectId(userId))
+      throw new AppError("Invalid user id", httpStatus.BAD_REQUEST);
     filter.userId = userId;
   }
 
   if (from || to) {
-    const isValidDate = (date: any) => {
-      const d = new Date(date);
-      return !isNaN(d.getTime());
-    };
-
-    if (from && !isValidDate(from)) {
-      throw new AppError("Invalid 'from' date. Format must be YYYY-MM-DD or ISO (e.g., 2024-01-01)", httpStatus.BAD_REQUEST);
-    }
-
-    if (to && !isValidDate(to)) {
-      throw new AppError("Invalid 'to' date. Format must be YYYY-MM-DD or ISO (e.g., 2024-01-01)", httpStatus.BAD_REQUEST);
-    }
-
-    if (from && to && new Date(from as string) > new Date(to as string)) {
-      throw new AppError("'from' date cannot be greater than 'to' date", httpStatus.BAD_REQUEST);
-    }
+    const isValidDate = (date: any) => !isNaN(new Date(date).getTime());
+    if (from && !isValidDate(from))
+      throw new AppError("Invalid 'from' date", httpStatus.BAD_REQUEST);
+    if (to && !isValidDate(to))
+      throw new AppError("Invalid 'to' date", httpStatus.BAD_REQUEST);
+    if (from && to && new Date(from as string) > new Date(to as string))
+      throw new AppError(
+        "'from' date cannot be greater than 'to' date",
+        httpStatus.BAD_REQUEST,
+      );
 
     filter.createdAt = {};
-
     if (from) {
-      const fromDate = new Date(from as string);
-      fromDate.setHours(0, 0, 0, 0);
-      filter.createdAt.$gte = fromDate;
+      const d = new Date(from as string);
+      d.setHours(0, 0, 0, 0);
+      filter.createdAt.$gte = d;
     }
-
     if (to) {
-      const toDate = new Date(to as string);
-      toDate.setHours(23, 59, 59, 999);
-      filter.createdAt.$lte = toDate;
+      const d = new Date(to as string);
+      d.setHours(23, 59, 59, 999);
+      filter.createdAt.$lte = d;
     }
   }
 
-  if (sort && sort !== 'ascending' && sort !== 'descending') {
-    throw new AppError("Invalid sort value. Must be 'ascending' or 'descending'", httpStatus.BAD_REQUEST);
-  }
+  if (sort && sort !== "ascending" && sort !== "descending")
+    throw new AppError("Invalid sort value", httpStatus.BAD_REQUEST);
 
-  const sortOrder = sort === 'ascending' ? 1 : -1;
+  const sortOrder = sort === "ascending" ? 1 : -1;
 
   const [data, total] = await Promise.all([
     Order.find(filter)
       .skip(skip)
       .limit(Number(perPage))
       .sort({ createdAt: sortOrder })
-      .populate('userId', 'name email image role')
+      .populate("userId", "name email image role")
       .populate(orderBookPopulate)
-      .populate('appliedCoupon')
+      .populate("appliedCoupon")
       .lean(),
     Order.countDocuments(filter),
   ]);
@@ -364,22 +375,21 @@ const getAllOrders = async (req: any) => {
 };
 
 const getSingleOrder = async (orderId: string) => {
-  if (!mongoose.isValidObjectId(orderId)) throw new AppError('Invalid order id', httpStatus.BAD_REQUEST);
-
+  if (!mongoose.isValidObjectId(orderId))
+    throw new AppError("Invalid order id", httpStatus.BAD_REQUEST);
   const order = await Order.findById(orderId)
-    .populate('userId', 'name email image role')
+    .populate("userId", "name email image role")
     .populate(orderBookPopulate)
-    .populate('appliedCoupon')
+    .populate("appliedCoupon")
     .lean();
-
-  if (!order) throw new AppError('Order not found', httpStatus.NOT_FOUND);
+  if (!order) throw new AppError("Order not found", httpStatus.NOT_FOUND);
   return order;
 };
 
 export const OrderService = {
   createCheckoutSession,
-  verifyPayment,
-  finalizeOrder, // exported for cron job
+  capturePayment, // ✅ verifyPayment এর জায়গায়
+  finalizeOrder, // cron + webhook reuse করে
   getMyOrders,
   getOrderById,
   getAllOrders,
