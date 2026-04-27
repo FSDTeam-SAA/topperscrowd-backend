@@ -69,10 +69,20 @@ const cleanupPendingOrders = createCronTask(
           result.skipped++;
         }
       } catch (err: any) {
-        result.failed++;
-        logger.error(
-          `[OrderCleanup] Failed to process order ${order._id}: ${err.message}`,
-        );
+        if (err.status === 404) {
+          // ✅ PayPal-এ অর্ডার পাওয়া না গেলে (৪0৪), সেটিকে cancelled মার্ক করো
+          logger.warn(
+            `[OrderCleanup] Order ${order._id} (PayPal ID: ${order.paypalOrderId}) not found in PayPal. Marking as cancelled.`,
+          );
+          order.paymentStatus = "cancelled";
+          await order.save();
+          result.processed++;
+        } else {
+          result.failed++;
+          logger.error(
+            `[OrderCleanup] Failed to process order ${order._id}: ${err.message}`,
+          );
+        }
       }
     }
 
