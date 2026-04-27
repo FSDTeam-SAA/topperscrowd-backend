@@ -5,15 +5,11 @@ import notFound from "./middleware/notFound";
 import { applySecurity } from "./middleware/security";
 import router from "./router";
 import morgan from "morgan";
-import config from "./config";
+// import config from "./config";
 
 const app: Application = express();
 
 app.use(express.static("public"));
-if (config.NODE_ENV === "development") {
-  app.use(morgan("dev"));
-}
-
 app.use(morgan("tiny"));
 
 // ✅ Webhook route এ raw body দরকার — express.json() এর আগে রাখতে হবে
