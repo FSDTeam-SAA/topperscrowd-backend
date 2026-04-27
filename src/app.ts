@@ -14,6 +14,8 @@ if (config.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
 
+app.use(morgan("tiny"));
+
 // ✅ Webhook route এ raw body দরকার — express.json() এর আগে রাখতে হবে
 app.use((req: Request, res: Response, next: NextFunction) => {
   if (req.originalUrl === "/api/v1/order/webhook/paypal") {
