@@ -3,7 +3,10 @@ import httpStatus from "http-status";
 import catchAsync from "../../utils/catchAsync";
 import sendResponse from "../../utils/sendResponse";
 import { OrderService } from "./order.service";
-import { verifyPayPalWebhookSignature } from "../../utils/paypal";
+import {
+  paypalRequest,
+  verifyPayPalWebhookSignature,
+} from "../../utils/paypal";
 import config from "../../config";
 import { Order } from "./order.model";
 import logger from "../../logger";
@@ -51,13 +54,40 @@ const handleWebhook = catchAsync(async (req: Request, res: Response) => {
     }
   }
 
-  // ✅ PayPal কে আগেই 200 দাও — তারপর processing করো
-  // এতে PayPal timeout এ retry করবে না
   res.status(200).json({ received: true });
 
   const event = JSON.parse(rawBody);
   logger.info(`[PayPal Webhook] Event: ${event.event_type}`);
 
+  // ✅ User approve করলে backend নিজেই capture করবে
+  if (event.event_type === "CHECKOUT.ORDER.APPROVED") {
+    const paypalOrderId = event.resource?.id;
+
+    if (paypalOrderId) {
+      const order = await Order.findOne({ paypalOrderId });
+      if (order && order.paymentStatus === "pending") {
+        const capture = await paypalRequest<{
+          status: string;
+          purchase_units: {
+            payments: {
+              captures: { id: string }[];
+            };
+          }[];
+        }>("POST", `/v2/checkout/orders/${paypalOrderId}/capture`, {});
+
+        if (capture.status === "COMPLETED") {
+          const captureId =
+            capture.purchase_units?.[0]?.payments?.captures?.[0]?.id;
+          await OrderService.finalizeOrder(order, captureId);
+          logger.info(
+            `[PayPal Webhook] Auto-captured and finalized: ${order._id}`,
+          );
+        }
+      }
+    }
+  }
+
+  // ✅ Safety net
   if (event.event_type === "PAYMENT.CAPTURE.COMPLETED") {
     const resource = event.resource;
     const paypalOrderId = resource?.supplementary_data?.related_ids?.order_id;
