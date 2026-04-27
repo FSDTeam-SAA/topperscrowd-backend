@@ -46,6 +46,7 @@ router.get(
   auth(USER_ROLE.ADMIN),
   OrderController.getSingleOrder,
 );
+router.get("/paypal-return", OrderController.handlePayPalReturn);
 router.get("/:orderId", auth(USER_ROLE.USER), OrderController.getOrderById);
 
 export const OrderRouter = router;

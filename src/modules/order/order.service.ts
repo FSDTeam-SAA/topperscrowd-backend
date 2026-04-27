@@ -151,7 +151,7 @@ const createCheckoutSession = async (
       },
     ],
     application_context: {
-      return_url: `${config.clientUrl}/payment-success`,
+      return_url: `${config.serverUrl}/api/v1/order/paypal-return`,
       cancel_url: `${config.clientUrl}/payment/cancel`,
       brand_name: "ToppersCrowd",
       user_action: "PAY_NOW",
