@@ -103,6 +103,38 @@ const handleWebhook = catchAsync(async (req: Request, res: Response) => {
   }
 });
 
+const handlePayPalReturn = catchAsync(async (req: Request, res: Response) => {
+  const { token } = req.query; // token = paypalOrderId
+
+  if (!token) {
+    res.redirect(`${config.clientUrl}/payment/cancel`);
+    return;
+  }
+
+  const order = await Order.findOne({ paypalOrderId: token as string });
+
+  if (!order || order.paymentStatus === "paid") {
+    res.redirect(`${config.clientUrl}/payment-success`);
+    return;
+  }
+
+  const capture = await paypalRequest<{
+    status: string;
+    purchase_units: {
+      payments: {
+        captures: { id: string }[];
+      };
+    }[];
+  }>("POST", `/v2/checkout/orders/${token}/capture`, {});
+
+  if (capture.status === "COMPLETED") {
+    const captureId = capture.purchase_units?.[0]?.payments?.captures?.[0]?.id;
+    await OrderService.finalizeOrder(order, captureId);
+    res.redirect(`${config.clientUrl}/payment-success?orderId=${order._id}`);
+  } else {
+    res.redirect(`${config.clientUrl}/payment/cancel`);
+  }
+});
 const getMyOrders = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user.id;
   const result = await OrderService.getMyOrders(userId);
@@ -157,4 +189,5 @@ export const OrderController = {
   getOrderById,
   getAllOrders,
   getSingleOrder,
+  handlePayPalReturn,
 };

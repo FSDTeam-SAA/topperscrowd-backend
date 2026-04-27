@@ -7,6 +7,7 @@ export default {
   nodeEnv: process.env.NODE_ENV,
   clientUrl:
     process.env.CLIENT_URL || "https://topperscrowd-frontend.vercel.app/",
+  serverUrl: process.env.SERVER_URL || "https://api.kathorianpublishingllc.com",
   bcryptSaltRounds: process.env.BCRYPT_SALT_ROUNDS,
   NODE_ENV: process.env.NODE_ENV,
   JWT_SECRET: process.env.JWT_SECRET,
