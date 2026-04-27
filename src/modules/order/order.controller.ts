@@ -37,18 +37,18 @@ const capturePayment = catchAsync(async (req: Request, res: Response) => {
 const handleWebhook = catchAsync(async (req: Request, res: Response) => {
   const rawBody = (req as any).rawBody as string;
 
-  const isValid = await verifyPayPalWebhookSignature(
-    req.headers as Record<string, string>,
-    rawBody,
-    config.paypal.webhookId,
-  );
-
-  if (!isValid) {
-    logger.warn("[PayPal Webhook] Invalid signature");
-    res
-      .status(400)
-      .json({ success: false, message: "Invalid webhook signature" });
-    return;
+  if (config.nodeEnv !== "development") {
+    const isValid = await verifyPayPalWebhookSignature(
+      req.headers as Record<string, string>,
+      rawBody,
+      config.paypal.webhookId,
+    );
+    if (!isValid) {
+      res
+        .status(400)
+        .json({ success: false, message: "Invalid webhook signature" });
+      return;
+    }
   }
 
   // ✅ PayPal কে আগেই 200 দাও — তারপর processing করো

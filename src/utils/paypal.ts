@@ -58,7 +58,11 @@ export const paypalRequest = async <T>(
 
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`PayPal API error [${res.status}] ${path}: ${err}`);
+    const error: any = new Error(
+      `PayPal API error [${res.status}] ${path}: ${err}`,
+    );
+    error.status = res.status;
+    throw error;
   }
 
   return res.json() as Promise<T>;
