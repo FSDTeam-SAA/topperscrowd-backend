@@ -104,7 +104,7 @@ const handleWebhook = catchAsync(async (req: Request, res: Response) => {
 });
 
 const handlePayPalReturn = catchAsync(async (req: Request, res: Response) => {
-  const { token } = req.query; // token = paypalOrderId
+  const { token } = req.query;
 
   if (!token) {
     res.redirect(`${config.clientUrl}/payment/cancel`);
@@ -113,8 +113,28 @@ const handlePayPalReturn = catchAsync(async (req: Request, res: Response) => {
 
   const order = await Order.findOne({ paypalOrderId: token as string });
 
-  if (!order || order.paymentStatus === "paid") {
-    res.redirect(`${config.clientUrl}/payment-success`);
+  if (!order) {
+    res.redirect(`${config.clientUrl}/payment/cancel`);
+    return;
+  }
+
+  if (order.paymentStatus === "paid") {
+    res.redirect(`${config.clientUrl}/payment-success?orderId=${order._id}`);
+    return;
+  }
+
+  // ✅ PayPal থেকে order status verify করো — APPROVED কিনা
+  const paypalOrder = await paypalRequest<{ status: string }>(
+    "GET",
+    `/v2/checkout/orders/${token}`,
+  );
+
+  // ✅ APPROVED না হলে capture করব না
+  if (paypalOrder.status !== "APPROVED") {
+    logger.warn(
+      `[PayPalReturn] Order not approved. Status: ${paypalOrder.status}, token: ${token}`,
+    );
+    res.redirect(`${config.clientUrl}/payment/cancel`);
     return;
   }
 
