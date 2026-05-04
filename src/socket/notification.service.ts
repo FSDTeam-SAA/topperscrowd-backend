@@ -11,9 +11,9 @@ export const initNotificationSocket = (socketIO: Server) => {
 
 export const createNotification = async ({
   to,
-  message,
-  type,
-  id,
+  message: _message,
+  type: _type,
+  id: _id,
 }: {
   to: mongoose.Types.ObjectId;
   message: string;

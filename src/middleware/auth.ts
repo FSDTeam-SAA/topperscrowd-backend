@@ -6,7 +6,7 @@ import logger from "../logger";
 import { verifyToken } from "../utils/tokenGenerate";
 
 const auth = (...roles: string[]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, _res: Response, next: NextFunction) => {
     try {
       const extractedToken = req.headers.authorization;
       const token = extractedToken?.split(" ")[1];

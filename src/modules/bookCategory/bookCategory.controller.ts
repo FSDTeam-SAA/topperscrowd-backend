@@ -23,7 +23,7 @@ const getAllBookCategories = catchAsync(async (req, res) => {
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
-    message: "BookCategories retrieved successfully",
+    message: message,
     data: data,
     meta: meta
   });

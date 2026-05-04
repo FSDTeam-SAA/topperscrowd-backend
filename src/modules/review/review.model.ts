@@ -1,6 +1,5 @@
 import { model, Schema } from "mongoose";
 import { IReview } from "./review.interface";
-import AppError from "../../errors/AppError";
 
 const reviewSchema = new Schema<IReview>(
   {

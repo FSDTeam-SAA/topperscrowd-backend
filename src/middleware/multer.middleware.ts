@@ -2,14 +2,14 @@ import multer from "multer";
 import path from "path";
 
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
+  destination: function (_req, _file, cb) {
     cb(null, path.join(__dirname, "../../uploads"));
   },
-  filename: function (req, file, cb) {
+  filename: function (_req, _file, cb) {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     cb(
       null,
-      file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname)
+      _file.fieldname + "-" + uniqueSuffix + path.extname(_file.originalname)
     );
   },
 });
@@ -17,7 +17,7 @@ const storage = multer.diskStorage({
 export const upload = multer({
   storage: storage,
   limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
+  fileFilter: (_req, file, cb) => {
     let filetypes: RegExp;
     if (file.fieldname === "image") {
       filetypes = /jpeg|jpg|png|avif|webp/;

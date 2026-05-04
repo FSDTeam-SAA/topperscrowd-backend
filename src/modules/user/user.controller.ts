@@ -50,7 +50,7 @@ const resendOtpCode = catchAsync(async (req, res) => {
   });
 });
 
-const getAllUsers = catchAsync(async (req, res) => {
+const getAllUsers = catchAsync(async (_req, res) => {
   const result = await userService.getAllUsers();
 
   sendResponse(res, {
@@ -61,7 +61,7 @@ const getAllUsers = catchAsync(async (req, res) => {
   });
 });
 
-const getAdminId = catchAsync(async (req, res) => {
+const getAdminId = catchAsync(async (_req, res) => {
   const result = await userService.getAdminId();
 
   sendResponse(res, {

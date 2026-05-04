@@ -92,9 +92,10 @@ const initChatSocket = (io: Server) => {
     socket.on("pinMessage", async (data: { messageId: string }) => {
       try {
         if (userRole !== "admin" && userRole !== "author") {
-          return socket.emit("error", {
+          socket.emit("error", {
             message: "Not authorized to pin messages",
           });
+          return;
         }
 
         if (!mongoose.isValidObjectId(data.messageId)) return;
@@ -118,7 +119,8 @@ const initChatSocket = (io: Server) => {
     socket.on("deleteMessage", async (data: { messageId: string }) => {
       try {
         if (userRole !== "admin" && userRole !== "author") {
-          return socket.emit("error", { message: "Not authorized" });
+          socket.emit("error", { message: "Not authorized" });
+          return;
         }
 
         if (!mongoose.isValidObjectId(data.messageId)) return;
