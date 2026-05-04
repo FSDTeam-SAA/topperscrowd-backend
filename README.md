@@ -11,7 +11,7 @@
     <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" />
     <img src="https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white" />
     <img src="https://img.shields.io/badge/MongoDB-4EA94B?style=for-the-badge&logo=mongodb&logoColor=white" />
-    <img src="https://img.shields.io/badge/Stripe-626CD9?style=for-the-badge&logo=Stripe&logoColor=white" />
+    <img src="https://img.shields.io/badge/PayPal-003087?style=for-the-badge&logo=paypal&logoColor=white" />
     <img src="https://img.shields.io/badge/Socket.io-010101?style=for-the-badge&logo=socket.io&logoColor=white" />
   </div>
 </div>
@@ -24,7 +24,7 @@ ToppersCrowd is built using modern Software Engineering principles emphasizing *
 
 - 🛡️ **End-to-End Type Safety:** 100% strict TypeScript configuration validated through **Zod** payload schemas.
 - 🔒 **Ironclad Security:** Robust defenses using automated rate limiting, `helmet` HTTP headers, parameterized queries mapping (`express-mongo-sanitize`), XSS cleaning (`xss-clean`), and HTTP parameter pollution prevention (`hpp`).
-- 💳 **Advanced Stripe Orders (Bulk Support):** A robust background system featuring atomicity for multiple items per order. An automated `node-cron` task continuously scans pending orders, validates Stripe session expiration, and auto-cancels "ghost" carts.
+- 💳 **Advanced PayPal Orders (Bulk Support):** A robust background system featuring atomicity for multiple items per order. An automated `node-cron` task continuously scans pending orders, validates payment status, and auto-cancels "ghost" carts.
 - 📚 **Dynamic Books:** Book models automatically validate dependencies via pre-save middlewares, deeply integrate metrics for `saleCount` / `averageRating`, and support dual media tracking for `audio` and `image` formats via Cloudinary.
 - 🛒 **Unique Cart Tracking:** Each user owns a unique, isolated cart instance with real-time aggregated state updates (live `totalPrice` calculation).
 - 💬 **Real-Time Communication:** **Socket.io** powered live chatrooms for interactive user engagement and collaboration.
@@ -43,7 +43,7 @@ ToppersCrowd is built using modern Software Engineering principles emphasizing *
 | **Database & ORM** | MongoDB, Mongoose |
 | **Validation & Auth** | Zod, JWT (JSON Web Tokens), bcrypt, crypto-js |
 | **Real-Time** | Socket.io |
-| **Payments** | Stripe |
+| **Payments** | PayPal |
 | **Storage & Uploads** | Cloudinary, Multer |
 | **Email Services** | Nodemailer |
 | **Security** | Helmet, CORS, express-rate-limit, express-mongo-sanitize, xss-clean, hpp |
@@ -64,7 +64,7 @@ Base Prefix: `/api/v1` *(Standardized)*
 | **Categories** | `/bookcategory` | Taxonomy & relationships for organizing books. |
 | **Reviews** | `/review` | Independent review systems mapped to specific resources. |
 | **Carts** | `/cart` | Dynamic cart state tracking, updates, and validations. |
-| **Orders** | `/order` | Securing checkout state, Stripe flows, and final invoicing (bulk support). |
+| **Orders** | `/order` | Securing checkout state, PayPal flows, and final invoicing (bulk support). |
 | **Coupons** | `/coupon` | System for discounts, calculating valid codes and expiries. |
 | **Favorites** | `/favorite` | Personal book bookmarking and management. |
 | **Library** | `/library` | User-specific purchased digital content and listening stats. |
@@ -84,7 +84,7 @@ topperscrowd-backend/
 │   ├── config/             # Environment, Constant Mappers
 │   ├── errors/             # Global Zod/Mongoose Error Overrides
 │   ├── interface/          # Application-level TS Declarations 
-│   ├── lib/                # Third-party wrappers (Stripe, Cloudinary)
+│   ├── lib/                # Third-party wrappers (Cloudinary)
 │   ├── middleware/         # Auth verify, Role gates, Validation delegates
 │   ├── modules/            # Domain Modules (User, Auth, Book, Order...)
 │   │   └── {module}/       # e.g., auth.controller, auth.service, auth.route
@@ -109,7 +109,7 @@ Follow these steps exactly to run the ToppersCrowd backend seamlessly on your lo
 ### 1. Prerequisites
 * **Node.js** (v18.x or newer strongly recommended)
 * **MongoDB** (Local instance or MongoDB Atlas cluster URI)
-* **API Keys** (Stripe, Cloudinary, Gmail App Password)
+* **API Keys** (PayPal, Cloudinary, Gmail App Password)
 
 ### 2. Clone & Install
 ```bash
@@ -143,8 +143,10 @@ CLOUDINARY_API_SECRET=your_api_secret
 EMAIL_ADDRESS=your.company@gmail.com
 EMAIL_PASS=your_google_app_password
 
-# STRIPE PAYMENTS
-STRIPE_SECRET_KEY=sk_test_your_secret_stripe_key
+# PAYPAL PAYMENTS
+PAYPAL_MODE=sandbox
+PAYPAL_CLIENT_ID=your_paypal_client_id
+PAYPAL_CLIENT_SECRET=your_paypal_client_secret
 
 # FRONTEND CONNECTION
 CLIENT_URL=http://localhost:3000
