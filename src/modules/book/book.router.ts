@@ -19,13 +19,12 @@ router.post(
   bookController.createBook
 );
 
-router.get("/get-all-books", auth(), bookController.getAllBooks);
+router.get("/get-all-books", bookController.getAllBooks);
 
-router.get("/get-book/:bookId", auth(), bookController.getSingleBook);
+router.get("/get-book/:bookId", bookController.getSingleBook);
 
 router.get(
   "/get-books-by-category/:bookcategoryId",
-  auth(),
   bookController.getBooksByCategory
 );
 

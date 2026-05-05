@@ -18,9 +18,9 @@ router.post(
   bookCategoryController.createBookCategory
 );
 
-router.get("/get-all-bookcategories", auth(), bookCategoryController.getAllBookCategories);
+router.get("/get-all-bookcategories", bookCategoryController.getAllBookCategories);
 
-router.get("/get-bookcategory/:bookcategoryId", auth(), bookCategoryController.getBookCategoryById);
+router.get("/get-bookcategory/:bookcategoryId", bookCategoryController.getBookCategoryById);
 
 router.patch(
   "/update-bookcategory/:bookcategoryId",

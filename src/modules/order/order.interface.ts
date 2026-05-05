@@ -1,8 +1,8 @@
-import { Types } from 'mongoose';
+import { Types } from "mongoose";
 
 export interface IOrderItem {
   book: Types.ObjectId;
-  price: number; 
+  price: number;
   quantity: number;
 }
 
