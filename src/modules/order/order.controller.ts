@@ -11,18 +11,9 @@ import config from "../../config";
 import { Order } from "./order.model";
 import logger from "../../logger";
 
-const createCheckoutSession = catchAsync(
-  async (req: Request, res: Response) => {
-    const userId = req.user.id;
-    const result = await OrderService.createCheckoutSession(userId, req.body);
-    sendResponse(res, {
-      statusCode: httpStatus.OK,
-      success: true,
-      message: "PayPal order created successfully",
-      data: result,
-    });
-  },
-);
+const createPayPalOrder = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user.id;
+  const result = await OrderService.createPayPalOrder(userId, req.body);
 
 // ✅ verifyPayment → capturePayment
 const capturePayment = catchAsync(async (req: Request, res: Response) => {
@@ -32,96 +23,15 @@ const capturePayment = catchAsync(async (req: Request, res: Response) => {
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
-    message: result.message,
+    message: 'PayPal order created successfully',
     data: result,
   });
 });
 
-const handleWebhook = catchAsync(async (req: Request, res: Response) => {
-  const rawBody = (req as any).rawBody as string;
-
-  if (config.nodeEnv !== "development") {
-    const isValid = await verifyPayPalWebhookSignature(
-      req.headers as Record<string, string>,
-      rawBody,
-      config.paypal.webhookId,
-    );
-    if (!isValid) {
-      res
-        .status(400)
-        .json({ success: false, message: "Invalid webhook signature" });
-      return;
-    }
-  }
-
-  res.status(200).json({ received: true });
-
-  const event = JSON.parse(rawBody);
-  logger.info(`[PayPal Webhook] Event: ${event.event_type}`);
-
-  // ✅ User approve করলে backend নিজেই capture করবে
-  if (event.event_type === "CHECKOUT.ORDER.APPROVED") {
-    const paypalOrderId = event.resource?.id;
-
-    if (paypalOrderId) {
-      const order = await Order.findOne({ paypalOrderId });
-      if (order && order.paymentStatus === "pending") {
-        const capture = await paypalRequest<{
-          status: string;
-          purchase_units: {
-            payments: {
-              captures: { id: string }[];
-            };
-          }[];
-        }>("POST", `/v2/checkout/orders/${paypalOrderId}/capture`, {});
-
-        if (capture.status === "COMPLETED") {
-          const captureId =
-            capture.purchase_units?.[0]?.payments?.captures?.[0]?.id;
-          await OrderService.finalizeOrder(order, captureId);
-          logger.info(
-            `[PayPal Webhook] Auto-captured and finalized: ${order._id}`,
-          );
-        }
-      }
-    }
-  }
-
-  // ✅ Safety net
-  if (event.event_type === "PAYMENT.CAPTURE.COMPLETED") {
-    const resource = event.resource;
-    const paypalOrderId = resource?.supplementary_data?.related_ids?.order_id;
-    const captureId = resource?.id;
-
-    if (paypalOrderId) {
-      const order = await Order.findOne({ paypalOrderId });
-      if (order && order.paymentStatus === "pending") {
-        await OrderService.finalizeOrder(order, captureId);
-        logger.info(`[PayPal Webhook] Finalized: ${order._id}`);
-      }
-    }
-  }
-});
-
-const handlePayPalReturn = catchAsync(async (req: Request, res: Response) => {
-  const { token } = req.query;
-
-  if (!token) {
-    res.redirect(`${config.clientUrl}/payment/cancel`);
-    return;
-  }
-
-  const order = await Order.findOne({ paypalOrderId: token as string });
-
-  if (!order) {
-    res.redirect(`${config.clientUrl}/payment/cancel`);
-    return;
-  }
-
-  if (order.paymentStatus === "paid") {
-    res.redirect(`${config.clientUrl}/payment-success?orderId=${order._id}`);
-    return;
-  }
+const verifyPayment = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user.id;
+  const { paypalOrderId } = req.body;
+  const result = await OrderService.verifyPayment(userId, paypalOrderId);
 
   // ✅ PayPal থেকে order status verify করো — APPROVED কিনা
   const paypalOrder = await paypalRequest<{ status: string }>(
@@ -202,9 +112,8 @@ const getOrderById = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const OrderController = {
-  createCheckoutSession,
-  capturePayment,
-  handleWebhook,
+  createPayPalOrder,
+  verifyPayment,
   getMyOrders,
   getOrderById,
   getAllOrders,

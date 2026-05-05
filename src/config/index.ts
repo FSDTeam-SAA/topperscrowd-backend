@@ -34,12 +34,10 @@ export default {
     AES_IV: process.env.AES_IV,
   },
 
-  // ✅ stripe block সরিয়ে paypal block যোগ করা হয়েছে
   paypal: {
-    clientId: process.env.PAYPAL_CLIENT_ID as string,
-    clientSecret: process.env.PAYPAL_CLIENT_SECRET as string,
-    webhookId: process.env.PAYPAL_WEBHOOK_ID as string,
-    mode: (process.env.PAYPAL_MODE || "live") as "sandbox" | "live",
+    clientId: process.env.PAYPAL_CLIENT_ID,
+    clientSecret: process.env.PAYPAL_CLIENT_SECRET,
+    mode: process.env.PAYPAL_MODE || 'sandbox',
   },
 
   cron: {

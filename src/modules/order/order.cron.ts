@@ -1,25 +1,20 @@
-import cron from "node-cron";
-import { Order } from "./order.model";
-import { OrderService } from "./order.service";
-import { paypalRequest } from "../../utils/paypal";
-import config from "../../config";
-import logger from "../../logger";
-import { createCronTask, ITaskResult } from "../../utils/cronRunner";
+import cron from 'node-cron';
+import { Order } from './order.model';
+import { OrderService } from './order.service';
+import config from '../../config';
+import logger from '../../logger';
+import { createCronTask, ITaskResult } from '../../utils/cronRunner';
+import axios from 'axios';
 
-const cleanupPendingOrders = createCronTask(
-  "OrderCleanup",
-  async (): Promise<ITaskResult> => {
-    const result: ITaskResult = {
-      totalScanned: 0,
-      processed: 0,
-      skipped: 0,
-      failed: 0,
-    };
-
-    const now = new Date();
-    const expiryWindow = config.cron.orderExpiryMinutes * 60 * 1000;
-    const maxAgeWindow = config.cron.maxOrderAgeHours * 60 * 60 * 1000;
-    const maxAgeDate = new Date(now.getTime() - maxAgeWindow);
+/**
+ * Advanced Order Cleanup Task for PayPal
+ */
+const cleanupPendingOrders = createCronTask('OrderCleanup', async (): Promise<ITaskResult> => {
+  const result: ITaskResult = { totalScanned: 0, processed: 0, skipped: 0, failed: 0 };
+  
+  const now = new Date();
+  const expiryWindow = config.cron.orderExpiryMinutes * 60 * 1000;
+  const maxAgeWindow = config.cron.maxOrderAgeHours * 60 * 60 * 1000;
 
     // ✅ stripeSessionId → paypalOrderId
     const pendingOrders = await Order.find({
@@ -28,8 +23,15 @@ const cleanupPendingOrders = createCronTask(
       paypalOrderId: { $exists: true, $ne: null },
     });
 
-    result.totalScanned = pendingOrders.length;
-    if (pendingOrders.length === 0) return result;
+  // 1. Find pending orders within the valid cleanup window
+  const pendingOrders = await Order.find({
+    paymentStatus: 'pending',
+    createdAt: {
+      $lte: thresholdDate,
+      $gte: maxAgeDate,
+    },
+    paypalOrderId: { $exists: true, $ne: null },
+  });
 
     for (const order of pendingOrders) {
       try {
@@ -38,50 +40,74 @@ const cleanupPendingOrders = createCronTask(
           continue;
         }
 
-        // ✅ PayPal order status check
-        const paypalOrder = await paypalRequest<{
-          status: string;
-          purchase_units: {
-            payments?: {
-              captures?: { id: string; status: string }[];
-            };
-          }[];
-        }>("GET", `/v2/checkout/orders/${order.paypalOrderId}`);
+  // Generate PayPal Access Token
+  let accessToken, baseURL;
+  try {
+    const { clientId, clientSecret, mode } = config.paypal;
+    baseURL = mode === 'sandbox' ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com';
+    const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+    
+    const tokenResponse = await axios.post(`${baseURL}/v1/oauth2/token`, 'grant_type=client_credentials', {
+      headers: {
+        Authorization: `Basic ${auth}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    });
+    accessToken = tokenResponse.data.access_token;
+  } catch (err: any) {
+    logger.error(`[OrderCleanup] Failed to generate PayPal access token:`, err.message);
+    return result; // Abort if we can't authenticate
+  }
 
-        const captureId =
-          paypalOrder.purchase_units?.[0]?.payments?.captures?.[0]?.id;
+  for (const order of pendingOrders) {
+    try {
+      if (!order.paypalOrderId) {
+        result.skipped++;
+        continue;
+      }
 
-        if (paypalOrder.status === "COMPLETED") {
-          // ✅ Stripe paid → PayPal COMPLETED
-          await OrderService.finalizeOrder(order, captureId);
-          result.processed++;
-        } else if (
-          paypalOrder.status === "VOIDED" ||
-          (paypalOrder.status === "CREATED" &&
-            order.createdAt &&
-            now.getTime() - order.createdAt.getTime() >= expiryWindow)
-        ) {
-          // ✅ Stripe expired/unpaid → PayPal VOIDED বা expiry পেরিয়ে গেলে cancel
-          order.paymentStatus = "cancelled";
-          await order.save();
-          result.processed++;
-        } else {
-          result.skipped++;
+      const getOrderResponse = await axios.get(`${baseURL}/v2/checkout/orders/${order.paypalOrderId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      const paypalOrder = getOrderResponse.data;
+
+      if (paypalOrder.status === 'COMPLETED') {
+        const transactionId = paypalOrder.purchase_units[0].payments.captures[0].id;
+        await OrderService.finalizeOrder(order, transactionId);
+        result.processed++;
+      } else if (paypalOrder.status === 'APPROVED') {
+        // Attempt to capture it if it's approved but not completed
+        try {
+          const captureResponse = await axios.post(`${baseURL}/v2/checkout/orders/${order.paypalOrderId}/capture`, {}, {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (captureResponse.data.status === 'COMPLETED') {
+            const transactionId = captureResponse.data.purchase_units[0].payments.captures[0].id;
+            await OrderService.finalizeOrder(order, transactionId);
+            result.processed++;
+          } else {
+             result.skipped++;
+          }
+        } catch (captureErr) {
+           result.failed++;
         }
-      } catch (err: any) {
-        if (err.status === 404) {
-          // ✅ PayPal-এ অর্ডার পাওয়া না গেলে (৪0৪), সেটিকে cancelled মার্ক করো
-          logger.warn(
-            `[OrderCleanup] Order ${order._id} (PayPal ID: ${order.paypalOrderId}) not found in PayPal. Marking as cancelled.`,
-          );
-          order.paymentStatus = "cancelled";
-          await order.save();
-          result.processed++;
+      } else if (['VOIDED', 'EXPIRED', 'PAYER_ACTION_REQUIRED'].includes(paypalOrder.status)) {
+        order.paymentStatus = 'cancelled';
+        await order.save();
+        result.processed++;
+      } else {
+        // If it's still CREATED, wait until it expires based on our maxAge logic (or we could cancel it if it's too old)
+        if (new Date(paypalOrder.create_time).getTime() < thresholdDate.getTime()) {
+           order.paymentStatus = 'cancelled';
+           await order.save();
+           result.processed++;
         } else {
-          result.failed++;
-          logger.error(
-            `[OrderCleanup] Failed to process order ${order._id}: ${err.message}`,
-          );
+           result.skipped++;
         }
       }
     }

@@ -10,10 +10,9 @@ export interface IOrder {
   userId: Types.ObjectId;
   items: IOrderItem[];
   totalAmount: number;
-  paymentStatus: "pending" | "paid" | "cancelled";
-
+  paymentStatus: 'pending' | 'paid' | 'cancelled';
   paypalOrderId?: string;
-  transactionId?: string; // PayPal capture ID store হবে এখানে
+  transactionId?: string;
   appliedCoupon?: Types.ObjectId;
   createdAt?: Date;
   updatedAt?: Date;

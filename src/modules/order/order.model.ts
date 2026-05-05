@@ -20,10 +20,9 @@ const orderSchema = new Schema<IOrder>(
       enum: ["pending", "paid", "cancelled"],
       default: "pending",
     },
-    // ✅ stripeSessionId → paypalOrderId
     paypalOrderId: { type: String },
-    transactionId: { type: String }, // PayPal capture ID
-    appliedCoupon: { type: Schema.Types.ObjectId, ref: "Coupon" },
+    transactionId: { type: String },
+    appliedCoupon: { type: Schema.Types.ObjectId, ref: 'Coupon' },
   },
   { timestamps: true },
 );
