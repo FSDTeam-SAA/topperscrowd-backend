@@ -4,21 +4,51 @@ import { Order } from './order.model';
 import Book from '../book/book.model';
 import { Cart } from '../cart/cart.model';
 import { Coupon } from '../coupon/coupon.model';
-import Stripe from 'stripe';
 import config from '../../config';
 import mongoose from 'mongoose';
+import axios from 'axios';
 
-const stripe = new Stripe(config.stripe.secretKey as string, {
-  // @ts-ignore
-  apiVersion: '2023-10-16',
-});
+const generateAccessToken = async () => {
+  const { clientId, clientSecret, mode } = config.paypal;
+  if (!clientId || !clientSecret) {
+    throw new AppError('PayPal credentials are not configured properly', httpStatus.INTERNAL_SERVER_ERROR);
+  }
+  const baseURL = mode === 'sandbox' ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com';
+  const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+  
+  try {
+    const response = await axios.post(`${baseURL}/v1/oauth2/token`, 'grant_type=client_credentials', {
+      headers: {
+        Authorization: `Basic ${auth}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    });
+    return { accessToken: response.data.access_token, baseURL };
+  } catch (error) {
+    throw new AppError('Failed to generate PayPal access token', httpStatus.INTERNAL_SERVER_ERROR);
+  }
+};
 
-const buildCheckoutItems = async (userId: string, bookId?: string, quantity: number = 1) => {
+const buildCheckoutItems = async (userId: string, bookId?: string, quantity: number = 1, explicitItems?: { bookId: string; quantity: number }[]) => {
   const itemsToCheckout: { book: mongoose.Types.ObjectId; price: number; quantity: number }[] = [];
   let totalAmount = 0;
   const bookIdsToCheck: string[] = [];
 
-  if (bookId) {
+  if (explicitItems && explicitItems.length > 0) {
+    for (const item of explicitItems) {
+      const book = await Book.findById(item.bookId);
+      if (!book) throw new AppError(`Book with ID ${item.bookId} not found`, httpStatus.NOT_FOUND);
+      if (book.status !== 'active') throw new AppError(`Book '${book.title}' is currently unavailable`, httpStatus.BAD_REQUEST);
+
+      itemsToCheckout.push({
+        book: new mongoose.Types.ObjectId(item.bookId),
+        price: book.price,
+        quantity: item.quantity,
+      });
+      totalAmount += book.price * item.quantity;
+      bookIdsToCheck.push(item.bookId);
+    }
+  } else if (bookId) {
     const book = await Book.findById(bookId);
     if (!book) throw new AppError('Book not found', httpStatus.NOT_FOUND);
     if (book.status !== 'active') throw new AppError('This book is currently unavailable for purchase', httpStatus.BAD_REQUEST);
@@ -54,8 +84,8 @@ const buildCheckoutItems = async (userId: string, bookId?: string, quantity: num
   return { itemsToCheckout, totalAmount, bookIdsToCheck };
 };
 
-const applyCouponDiscount = async (userId: string, couponCode?: string) => {
-  if (!couponCode) return { appliedCouponId: undefined, stripeCouponId: undefined };
+const applyCouponDiscount = async (userId: string, totalAmount: number, couponCode?: string) => {
+  if (!couponCode) return { appliedCouponId: undefined, finalTotal: totalAmount, discountAmount: 0 };
 
   const coupon = await Coupon.findOne({ codeName: couponCode, assignedTo: userId });
   if (!coupon) {
@@ -68,35 +98,28 @@ const applyCouponDiscount = async (userId: string, couponCode?: string) => {
     throw new AppError('Coupon usage limit reached', httpStatus.BAD_REQUEST);
   }
 
-  let stripeCouponId;
+  let discountAmount = 0;
   if (coupon.discountType === 'percentage') {
-    const stripeCoupon = await stripe.coupons.create({
-      percent_off: coupon.discountAmount,
-      duration: 'once',
-    });
-    stripeCouponId = stripeCoupon.id;
+    discountAmount = (totalAmount * coupon.discountAmount) / 100;
   } else {
-    const stripeCoupon = await stripe.coupons.create({
-      amount_off: Math.round(coupon.discountAmount * 100),
-      currency: 'usd',
-      duration: 'once',
-    });
-    stripeCouponId = stripeCoupon.id;
+    discountAmount = coupon.discountAmount;
   }
-  return { appliedCouponId: coupon._id, stripeCouponId };
+
+  const finalTotal = Math.max(0, totalAmount - discountAmount);
+  return { appliedCouponId: coupon._id, finalTotal, discountAmount };
 };
 
-const createCheckoutSession = async (
+const createPayPalOrder = async (
   userId: string,
-  payload: { bookId?: string; quantity?: number; couponCode?: string }
+  payload: { bookId?: string; quantity?: number; items?: { bookId: string; quantity: number }[]; couponCode?: string }
 ) => {
-  const { bookId, quantity = 1, couponCode } = payload;
+  const { bookId, quantity = 1, items, couponCode } = payload;
 
   // 1. Snapshot Prices & Cart Integrity
-  const { itemsToCheckout, totalAmount, bookIdsToCheck } = await buildCheckoutItems(userId, bookId, quantity);
+  const { itemsToCheckout, totalAmount, bookIdsToCheck } = await buildCheckoutItems(userId, bookId, quantity, items);
 
   // Apply Coupon
-  const { appliedCouponId, stripeCouponId } = await applyCouponDiscount(userId, couponCode);
+  const { appliedCouponId, finalTotal } = await applyCouponDiscount(userId, totalAmount, couponCode);
 
   // 1a. Duplicate Ownership Check
   const existingOrder = await Order.findOne({
@@ -113,66 +136,77 @@ const createCheckoutSession = async (
   const order = await Order.create({
     userId,
     items: itemsToCheckout,
-    totalAmount,
+    totalAmount: finalTotal,
     paymentStatus: 'pending',
     appliedCoupon: appliedCouponId,
   });
 
-  // 3. Stripe Session Initiation
-  const lineItems = await Promise.all(itemsToCheckout.map(async (item) => {
-    const book = await Book.findById(item.book);
-    return {
-      price_data: {
-        currency: 'usd',
-        product_data: {
-          name: book?.title || 'Audiobook Purchase',
-          description: book?.author ? `By ${book.author}` : undefined,
+  // 3. PayPal Order Initiation
+  const { accessToken, baseURL } = await generateAccessToken();
+  const paypalPayload = {
+    intent: 'CAPTURE',
+    purchase_units: [
+      {
+        reference_id: order._id.toString(),
+        amount: {
+          currency_code: 'USD',
+          value: finalTotal.toFixed(2),
         },
-        unit_amount: Math.round(item.price * 100),
       },
-      quantity: item.quantity,
-    };
-  }));
-
-  const session = await stripe.checkout.sessions.create({
-    payment_method_types: ['card'],
-    line_items: lineItems,
-    discounts: stripeCouponId ? [{ coupon: stripeCouponId }] : undefined,
-    mode: 'payment',
-    //expires_at: Math.floor(Date.now() / 1000) + (config.cron.orderExpiryMinutes * 60), // Match internal cleanup window
-    success_url: `${config.clientUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${config.clientUrl}/payment/cancel`,
-    client_reference_id: order._id.toString(),
-    metadata: {
-      userId: userId.toString(),
-      orderId: order._id.toString(),
+    ],
+    application_context: {
+      landing_page: 'BILLING',
+      user_action: 'PAY_NOW',
+      return_url: `${config.clientUrl}/payment/success?order_id=${order._id}`,
+      cancel_url: `${config.clientUrl}/payment/cancel`,
     },
-  });
-
-  // Update order with session ID
-  order.stripeSessionId = session.id;
-  await order.save();
-
-  return {
-    checkoutUrl: session.url,
-    orderId: order._id,
-    stripeSessionId: session.id,
-    totalAmount: order.totalAmount,
   };
+
+  try {
+    const response = await axios.post(`${baseURL}/v2/checkout/orders`, paypalPayload, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    // Update order with PayPal Order ID
+    order.paypalOrderId = response.data.id;
+    await order.save();
+
+    const approveLink = response.data.links.find((link: any) => link.rel === 'approve');
+
+    return {
+      checkoutUrl: approveLink ? approveLink.href : null,
+      orderId: order._id,
+      paypalOrderId: response.data.id,
+      totalAmount: order.totalAmount,
+    };
+  } catch (error: any) {
+    // Clean up draft order if PayPal fails
+    await Order.findByIdAndDelete(order._id);
+    throw new AppError(`Failed to create PayPal order: ${error.response?.data?.message || error.message}`, httpStatus.INTERNAL_SERVER_ERROR);
+  }
 };
 
-const verifyPayment = async (userId: string, sessionId: string) => {
-  const session = await stripe.checkout.sessions.retrieve(sessionId);
+const verifyPayment = async (userId: string, paypalOrderId: string) => {
+  const { accessToken, baseURL } = await generateAccessToken();
 
-  // 7. Security Handshake (Metadata Matching)
-  if (session.metadata?.userId !== userId.toString()) {
-    throw new AppError('Unauthorized verification attempt', httpStatus.UNAUTHORIZED);
+  let paypalOrderData;
+  try {
+    // Retrieve the order to check status
+    const getOrderResponse = await axios.get(`${baseURL}/v2/checkout/orders/${paypalOrderId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    paypalOrderData = getOrderResponse.data;
+  } catch (error) {
+    throw new AppError('Failed to retrieve PayPal order', httpStatus.BAD_REQUEST);
   }
 
-  const orderId = session.metadata?.orderId;
-
+  const orderId = paypalOrderData.purchase_units[0].reference_id;
+  
   if (!orderId) {
-    throw new AppError('Order ID not found in session metadata', httpStatus.BAD_REQUEST);
+    throw new AppError('Order ID not found in PayPal order', httpStatus.BAD_REQUEST);
   }
 
   const order = await Order.findById(orderId);
@@ -180,14 +214,40 @@ const verifyPayment = async (userId: string, sessionId: string) => {
     throw new AppError('Order not found', httpStatus.NOT_FOUND);
   }
 
+  // Security Verification
+  if (order.userId.toString() !== userId.toString()) {
+    throw new AppError('Unauthorized verification attempt', httpStatus.UNAUTHORIZED);
+  }
+
   // 4a. Atomic Check (already paid)
   if (order.paymentStatus === 'paid') {
     return { status: 'success', message: 'Payment was already verified' };
   }
 
-  // 4b. Verify Stripe Status
-  if (session.payment_status === 'paid') {
-    await finalizeOrder(order, session);
+  // 4b. Verify PayPal Status and Capture if needed
+  if (paypalOrderData.status === 'APPROVED') {
+    try {
+      const captureResponse = await axios.post(`${baseURL}/v2/checkout/orders/${paypalOrderId}/capture`, {}, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (captureResponse.data.status === 'COMPLETED') {
+        const transactionId = captureResponse.data.purchase_units[0].payments.captures[0].id;
+        await finalizeOrder(order, transactionId);
+        return { status: 'success', message: 'Payment successful' };
+      } else {
+        throw new AppError('Payment capture failed', httpStatus.BAD_REQUEST);
+      }
+    } catch (error) {
+       throw new AppError('Failed to capture PayPal payment', httpStatus.INTERNAL_SERVER_ERROR);
+    }
+  } else if (paypalOrderData.status === 'COMPLETED') {
+    // Already captured
+    const transactionId = paypalOrderData.purchase_units[0].payments.captures[0].id;
+    await finalizeOrder(order, transactionId);
     return { status: 'success', message: 'Payment successful' };
   } else {
     throw new AppError('Payment not completed', httpStatus.BAD_REQUEST);
@@ -197,7 +257,7 @@ const verifyPayment = async (userId: string, sessionId: string) => {
 /**
  * Shared finalization logic for both synchronous verification and async cron job
  */
-const finalizeOrder = async (order: any, session: Stripe.Checkout.Session) => {
+const finalizeOrder = async (order: any, transactionId: string) => {
   // 1. Atomic Idempotency Check
   // We only proceed if the status is currently 'pending'. This prevents race conditions between Cron and Manual verify.
   const updatedOrder = await Order.findOneAndUpdate(
@@ -205,7 +265,7 @@ const finalizeOrder = async (order: any, session: Stripe.Checkout.Session) => {
     {
       $set: {
         paymentStatus: 'paid',
-        transactionId: session.payment_intent as string
+        transactionId: transactionId
       }
     },
     { new: true }
@@ -256,7 +316,7 @@ const getOrderById = async (userId: string, orderId: string) => {
 };
 
 export const OrderService = {
-  createCheckoutSession,
+  createPayPalOrder,
   verifyPayment,
   finalizeOrder, // exported for cron job
   getMyOrders,

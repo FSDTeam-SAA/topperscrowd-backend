@@ -11,7 +11,7 @@ router.post(
   '/checkout',
   auth(USER_ROLE.USER),
   validateRequest(OrderValidation.createCheckoutSessionSchema),
-  OrderController.createCheckoutSession
+  OrderController.createPayPalOrder
 );
 
 router.post(

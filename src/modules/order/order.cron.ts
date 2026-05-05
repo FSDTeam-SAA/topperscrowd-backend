@@ -1,21 +1,13 @@
 import cron from 'node-cron';
 import { Order } from './order.model';
 import { OrderService } from './order.service';
-import Stripe from 'stripe';
 import config from '../../config';
 import logger from '../../logger';
 import { createCronTask, ITaskResult } from '../../utils/cronRunner';
-
-const stripe = new Stripe(config.stripe.secretKey!, {
-  // @ts-ignore
-  apiVersion: '2023-10-16',
-});
+import axios from 'axios';
 
 /**
- * Advanced Order Cleanup Task
- * 1. Concurrency guarded: Stops overlaps if DB or Stripe is slow.
- * 2. Detailing: Reports skipped, processed, and failed counts.
- * 3. Configurable: Uses central config for expiry windows.
+ * Advanced Order Cleanup Task for PayPal
  */
 const cleanupPendingOrders = createCronTask('OrderCleanup', async (): Promise<ITaskResult> => {
   const result: ITaskResult = { totalScanned: 0, processed: 0, skipped: 0, failed: 0 };
@@ -34,30 +26,81 @@ const cleanupPendingOrders = createCronTask('OrderCleanup', async (): Promise<IT
       $lte: thresholdDate,
       $gte: maxAgeDate,
     },
-    stripeSessionId: { $exists: true, $ne: null },
+    paypalOrderId: { $exists: true, $ne: null },
   });
 
   result.totalScanned = pendingOrders.length;
   if (pendingOrders.length === 0) return result;
 
+  // Generate PayPal Access Token
+  let accessToken, baseURL;
+  try {
+    const { clientId, clientSecret, mode } = config.paypal;
+    baseURL = mode === 'sandbox' ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com';
+    const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+    
+    const tokenResponse = await axios.post(`${baseURL}/v1/oauth2/token`, 'grant_type=client_credentials', {
+      headers: {
+        Authorization: `Basic ${auth}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    });
+    accessToken = tokenResponse.data.access_token;
+  } catch (err: any) {
+    logger.error(`[OrderCleanup] Failed to generate PayPal access token:`, err.message);
+    return result; // Abort if we can't authenticate
+  }
+
   for (const order of pendingOrders) {
     try {
-      if (!order.stripeSessionId) {
+      if (!order.paypalOrderId) {
         result.skipped++;
         continue;
       }
 
-      const session = await stripe.checkout.sessions.retrieve(order.stripeSessionId);
+      const getOrderResponse = await axios.get(`${baseURL}/v2/checkout/orders/${order.paypalOrderId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
 
-      if (session.payment_status === 'paid') {
-        await OrderService.finalizeOrder(order, session);
+      const paypalOrder = getOrderResponse.data;
+
+      if (paypalOrder.status === 'COMPLETED') {
+        const transactionId = paypalOrder.purchase_units[0].payments.captures[0].id;
+        await OrderService.finalizeOrder(order, transactionId);
         result.processed++;
-      } else if (session.status === 'expired' || (session.status === 'open' && session.payment_status === 'unpaid' && new Date(session.expires_at * 1000) < now)) {
+      } else if (paypalOrder.status === 'APPROVED') {
+        // Attempt to capture it if it's approved but not completed
+        try {
+          const captureResponse = await axios.post(`${baseURL}/v2/checkout/orders/${order.paypalOrderId}/capture`, {}, {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (captureResponse.data.status === 'COMPLETED') {
+            const transactionId = captureResponse.data.purchase_units[0].payments.captures[0].id;
+            await OrderService.finalizeOrder(order, transactionId);
+            result.processed++;
+          } else {
+             result.skipped++;
+          }
+        } catch (captureErr) {
+           result.failed++;
+        }
+      } else if (['VOIDED', 'EXPIRED', 'PAYER_ACTION_REQUIRED'].includes(paypalOrder.status)) {
         order.paymentStatus = 'cancelled';
         await order.save();
         result.processed++;
       } else {
-        result.skipped++;
+        // If it's still CREATED, wait until it expires based on our maxAge logic (or we could cancel it if it's too old)
+        if (new Date(paypalOrder.create_time).getTime() < thresholdDate.getTime()) {
+           order.paymentStatus = 'cancelled';
+           await order.save();
+           result.processed++;
+        } else {
+           result.skipped++;
+        }
       }
     } catch (err: any) {
       result.failed++;

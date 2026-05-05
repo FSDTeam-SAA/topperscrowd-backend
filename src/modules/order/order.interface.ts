@@ -11,7 +11,7 @@ export interface IOrder {
   items: IOrderItem[];
   totalAmount: number;
   paymentStatus: 'pending' | 'paid' | 'cancelled';
-  stripeSessionId?: string;
+  paypalOrderId?: string;
   transactionId?: string;
   appliedCoupon?: Types.ObjectId;
   createdAt?: Date;

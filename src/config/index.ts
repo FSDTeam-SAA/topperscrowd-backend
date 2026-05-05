@@ -35,8 +35,10 @@ export default {
     AES_IV: process.env.AES_IV,
   },
 
-  stripe: {
-    secretKey: process.env.STRIPE_SECRET_KEY,
+  paypal: {
+    clientId: process.env.PAYPAL_CLIENT_ID,
+    clientSecret: process.env.PAYPAL_CLIENT_SECRET,
+    mode: process.env.PAYPAL_MODE || 'sandbox',
   },
   cron: {
     checkInterval: process.env.CRON_CHECK_INTERVAL || '*/10 * * * * *', // Every 10 seconds

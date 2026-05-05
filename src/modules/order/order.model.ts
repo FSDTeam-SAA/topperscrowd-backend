@@ -20,7 +20,7 @@ const orderSchema = new Schema<IOrder>(
       enum: ['pending', 'paid', 'cancelled'],
       default: 'pending',
     },
-    stripeSessionId: { type: String },
+    paypalOrderId: { type: String },
     transactionId: { type: String },
     appliedCoupon: { type: Schema.Types.ObjectId, ref: 'Coupon' },
   },

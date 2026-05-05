@@ -4,22 +4,22 @@ import catchAsync from '../../utils/catchAsync';
 import sendResponse from '../../utils/sendResponse';
 import { OrderService } from './order.service';
 
-const createCheckoutSession = catchAsync(async (req: Request, res: Response) => {
+const createPayPalOrder = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user.id;
-  const result = await OrderService.createCheckoutSession(userId, req.body);
+  const result = await OrderService.createPayPalOrder(userId, req.body);
 
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
-    message: 'Checkout session created successfully',
+    message: 'PayPal order created successfully',
     data: result,
   });
 });
 
 const verifyPayment = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user.id;
-  const { sessionId } = req.body;
-  const result = await OrderService.verifyPayment(userId, sessionId);
+  const { paypalOrderId } = req.body;
+  const result = await OrderService.verifyPayment(userId, paypalOrderId);
 
   sendResponse(res, {
     statusCode: httpStatus.OK,
@@ -55,7 +55,7 @@ const getOrderById = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const OrderController = {
-  createCheckoutSession,
+  createPayPalOrder,
   verifyPayment,
   getMyOrders,
   getOrderById,
