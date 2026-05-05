@@ -7,8 +7,8 @@ import hpp from "hpp";
 
 // Global rate limiter
 const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 min
-  max: 150,
+  windowMs: 5 * 60 * 1000, // 15 min
+  max: 250,
   standardHeaders: true,
   legacyHeaders: false,
   message: "Too many requests, try again later.",
@@ -25,7 +25,13 @@ export const loginLimiter = rateLimit({
 
 // CORS options
 const corsOptions = {
-  origin: ["http://localhost:3000", "http://localhost:3001"],
+  origin: [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "https://topperscrowd-frontend.vercel.app",
+    "https://kathorianpublishingllc.com",
+    "https://www.kathorianpublishingllc.com",
+  ],
   methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE"],
   credentials: true,
 };

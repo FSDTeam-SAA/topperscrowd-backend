@@ -1,4 +1,5 @@
 import config from "../../config";
+import { getCloudinaryThumbnailUrl } from "../../utils/cloudinary";
 import { USER_ROLE } from "../user/user.constant";
 
 /**
@@ -48,4 +49,37 @@ export const transformBookResponse = (
     return book.map(transform);
   }
   return transform(book);
+};
+
+/**
+ * Transforms a book object (or objects) and applies thumbnail resizing to the image URL.
+ */
+export const transformBookResponseWithThumbnail = (
+  book: any,
+  user: { id: string; role: string } | null,
+  purchasedBookIds: string[] = []
+) => {
+  const transformed = transformBookResponse(book, user, purchasedBookIds);
+
+  const applyThumbnail = (item: any) => {
+    if (!item) return item;
+
+    // Explicitly remove audio object for list views
+    if (item.audio) {
+      delete item.audio;
+    }
+
+    if (item.image?.secure_url) {
+      item.image = {
+        ...item.image,
+        secure_url: getCloudinaryThumbnailUrl(item.image.secure_url),
+      };
+    }
+    return item;
+  };
+
+  if (Array.isArray(transformed)) {
+    return transformed.map(applyThumbnail);
+  }
+  return applyThumbnail(transformed);
 };

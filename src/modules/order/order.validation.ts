@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 const createCheckoutSessionSchema = z.object({
   body: z.object({
@@ -12,7 +12,8 @@ const createCheckoutSessionSchema = z.object({
   }),
 });
 
-const verifyPaymentSchema = z.object({
+// ✅ sessionId → paypalOrderId
+const capturePaymentSchema = z.object({
   body: z.object({
     paypalOrderId: z.string({
       required_error: 'PayPal orderId is required',
@@ -22,5 +23,5 @@ const verifyPaymentSchema = z.object({
 
 export const OrderValidation = {
   createCheckoutSessionSchema,
-  verifyPaymentSchema,
+  capturePaymentSchema,
 };

@@ -6,7 +6,7 @@ import { fileCleanup } from "../utils/fileCleanup";
 export const validateRequest = (schema: ZodSchema): RequestHandler => {
   return async (req: Request, _res: Response, next: NextFunction) => {
     try {
-      const hasBody = req.body && Object.keys(req.body).length > 0;
+      const hasBody = req.body !== undefined && req.body !== null;
 
       const hasFile =
         !!req.file ||

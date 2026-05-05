@@ -101,7 +101,8 @@ const initChatSocket = (io: Server) => {
         if (!mongoose.isValidObjectId(data.messageId)) return;
 
         const message = await ChatMessage.findById(data.messageId);
-        if (!message || message.isDeleted) return;
+        if (!message) return;
+        if (message.isDeleted) return;
 
         message.isPinned = !message.isPinned;
         message.pinnedBy = message.isPinned
