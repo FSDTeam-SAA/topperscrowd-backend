@@ -16,8 +16,12 @@ const cleanupPendingOrders = createCronTask('OrderCleanup', async (): Promise<IT
   const expiryWindow = config.cron.orderExpiryMinutes * 60 * 1000;
   const maxAgeWindow = config.cron.maxOrderAgeHours * 60 * 60 * 1000;
 
-  const thresholdDate = new Date(now.getTime() - expiryWindow);
-  const maxAgeDate = new Date(now.getTime() - maxAgeWindow);
+    // ✅ stripeSessionId → paypalOrderId
+    const pendingOrders = await Order.find({
+      paymentStatus: "pending",
+      createdAt: { $gte: maxAgeDate },
+      paypalOrderId: { $exists: true, $ne: null },
+    });
 
   // 1. Find pending orders within the valid cleanup window
   const pendingOrders = await Order.find({
@@ -29,8 +33,12 @@ const cleanupPendingOrders = createCronTask('OrderCleanup', async (): Promise<IT
     paypalOrderId: { $exists: true, $ne: null },
   });
 
-  result.totalScanned = pendingOrders.length;
-  if (pendingOrders.length === 0) return result;
+    for (const order of pendingOrders) {
+      try {
+        if (!order.paypalOrderId) {
+          result.skipped++;
+          continue;
+        }
 
   // Generate PayPal Access Token
   let accessToken, baseURL;
@@ -102,14 +110,11 @@ const cleanupPendingOrders = createCronTask('OrderCleanup', async (): Promise<IT
            result.skipped++;
         }
       }
-    } catch (err: any) {
-      result.failed++;
-      logger.error(`[OrderCleanup] Failed to process order ${order._id}:`, err.message);
     }
-  }
 
-  return result;
-});
+    return result;
+  },
+);
 
 export const initOrderCron = () => {
   cron.schedule(config.cron.checkInterval, cleanupPendingOrders);

@@ -1,10 +1,11 @@
 import { Order } from "../order/order.model";
 import ListenerProgress from "../listenerProgress/listenerProgress.model";
-import Book from "../book/book.model";
+import Review from "../review/review.model";
 import { Favorite } from "../favorite/favorite.model";
 import { paginationHelper } from "../../utils/pafinationHelper";
-import { transformBookResponse } from "../book/book.utils";
+import { transformBookResponse, transformBookResponseWithThumbnail } from "../book/book.utils";
 import mongoose from "mongoose";
+import Book from "../book/book.model";
 
 const getLibraryStats = async (userId: string) => {
   const sevenDaysAgo = new Date();
@@ -123,10 +124,28 @@ const getMyBooks = async (userId: string, user: any, page: string, limit: string
     Book.countDocuments({ _id: { $in: purchasedBookIds } })
   ]);
 
-  const transformedBooks = transformBookResponse(books, user, (purchasedBookIds as any).map((id: any) => id.toString()));
+  // Fetch reviews by this user for these books to get personal ratings
+  const userReviews = await Review.find({
+    userId: new mongoose.Types.ObjectId(userId),
+    bookId: { $in: books.map((b: any) => b._id) },
+    isDeleted: false
+  }).select("bookId rating").lean();
+
+  const reviewMap = userReviews.reduce((acc: any, review: any) => {
+    acc[review.bookId.toString()] = review.rating;
+    return acc;
+  }, {});
+
+  // Transform books to include thumbnails and handle conditional field visibility
+  const transformedBooks = transformBookResponseWithThumbnail(books, user, purchasedBookIds.map(id => id.toString()));
+
+  const data = (Array.isArray(transformedBooks) ? transformedBooks : [transformedBooks]).map((book: any) => ({
+    ...book,
+    myRating: reviewMap[book._id.toString()] || null
+  }));
 
   return {
-    data: transformedBooks,
+    data,
     meta: {
       total,
       page: currentPage,

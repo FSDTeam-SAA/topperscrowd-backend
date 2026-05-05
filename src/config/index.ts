@@ -5,8 +5,9 @@ export default {
   port: process.env.PORT,
   mongodbUrl: process.env.MONGODB_URL,
   nodeEnv: process.env.NODE_ENV,
-  clientUrl: process.env.CLIENT_URL || 'http://localhost:3000',
-
+  clientUrl:
+    process.env.CLIENT_URL || "https://topperscrowd-frontend.vercel.app/",
+  serverUrl: process.env.SERVER_URL || "https://api.kathorianpublishingllc.com",
   bcryptSaltRounds: process.env.BCRYPT_SALT_ROUNDS,
   NODE_ENV: process.env.NODE_ENV,
   JWT_SECRET: process.env.JWT_SECRET,
@@ -23,13 +24,11 @@ export default {
     reset_password_token_secret: process.env.RESET_PASSWORD_TOKEN_SECRET,
     reset_password_token_expires: process.env.RESET_EXPIRES_IN,
   },
-
   cloudinary: {
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET,
   },
-
   security: {
     AES_KEY: process.env.AES_KEY,
     AES_IV: process.env.AES_IV,
@@ -40,9 +39,30 @@ export default {
     clientSecret: process.env.PAYPAL_CLIENT_SECRET,
     mode: process.env.PAYPAL_MODE || 'sandbox',
   },
+
   cron: {
-    checkInterval: process.env.CRON_CHECK_INTERVAL || '*/10 * * * * *', // Every 10 seconds
+    checkInterval: process.env.CRON_CHECK_INTERVAL || "*/10 * * * * *",
     orderExpiryMinutes: Number(process.env.ORDER_EXPIRY_MINUTES) || 20,
     maxOrderAgeHours: Number(process.env.MAX_ORDER_AGE_HOURS) || 24,
-  }
+  },
 };
+
+// --- Validation ---
+const requiredEnvVars = [
+  { name: "MONGODB_URL", val: process.env.MONGODB_URL },
+  { name: "PAYPAL_CLIENT_ID", val: process.env.PAYPAL_CLIENT_ID },
+  { name: "PAYPAL_CLIENT_SECRET", val: process.env.PAYPAL_CLIENT_SECRET },
+  { name: "PAYPAL_WEBHOOK_ID", val: process.env.PAYPAL_WEBHOOK_ID },
+  { name: "JWT_SECRET", val: process.env.JWT_SECRET },
+];
+
+requiredEnvVars.forEach((env) => {
+  if (!env.val) {
+    console.error(
+      `\x1b[31m[ERROR] Missing environment variable: ${env.name}\x1b[0m`,
+    );
+    throw new Error(
+      `CRITICAL: ${env.name} is not defined in environment variables.`,
+    );
+  }
+});

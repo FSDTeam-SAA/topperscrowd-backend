@@ -4,6 +4,7 @@ import { deleteFromCloudinary, uploadToCloudinary } from "../../utils/cloudinary
 import { paginationHelper } from "../../utils/pafinationHelper";
 import { IBookCategory, IBookCategoryUpdate } from "./bookCategory.interface";
 import BookCategory from "./bookCategory.model";
+import { transformBookCategoryResponse, transformBookCategoryResponseWithThumbnail } from "./bookCategory.utils";
 
 //create a new book category
 const createBookCategory = async (req: any) => {
@@ -110,12 +111,15 @@ const getAllBookCategories = async (req: any) => {
     BookCategory.find(filter)
       .skip(skip)
       .limit(perPage)
-      .sort({ createdAt: -1 }), // latest first
+      .sort({ createdAt: -1 })
+      .lean(), // Use lean for transformation
     BookCategory.countDocuments(filter),
   ]);
 
+  const transformedData = transformBookCategoryResponseWithThumbnail(data);
+
   return {
-    data,
+    data: transformedData,
     meta: {
       page: Number(page),
       limit: Number(perPage),
@@ -131,10 +135,10 @@ const getBookCategoryById = async (req: any) => {
 
   if (!mongoose.isValidObjectId(bookcategoryId)) throw new AppError("Invalid book category id", 400);
 
-  const result = await BookCategory.findById(bookcategoryId);
+  const result = await BookCategory.findById(bookcategoryId).lean();
   if (!result) throw new AppError("Book category not found", 404);
 
-  return result;
+  return transformBookCategoryResponse(result);
 };
 
 //update a book category by id
