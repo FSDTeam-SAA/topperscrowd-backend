@@ -68,7 +68,7 @@ const removeItem = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user.id;
   const { bookId } = req.params;
 
-  const result = await CartService.removeItemFromCartFromDB(userId, bookId);
+  const result = await CartService.removeItemFromCartFromDB(userId, bookId as string);
 
   sendResponse(res, {
     statusCode: httpStatus.OK,
