@@ -9,6 +9,7 @@ import morgan from "morgan";
 import config from "./config";
 
 const app: Application = express();
+app.set("trust proxy", 1);
 
 app.use(express.static("public"));
 if (config.NODE_ENV === "development") {
