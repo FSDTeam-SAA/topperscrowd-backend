@@ -14,6 +14,10 @@ const generateAccessToken = async () => {
     throw new AppError('PayPal credentials are not configured properly', httpStatus.INTERNAL_SERVER_ERROR);
   }
   const baseURL = mode === 'sandbox' ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com';
+  
+  // Debug: check if credentials have any trailing spaces
+  console.log(`Debug: PayPal Mode=${mode}, ID Length=${clientId?.length}, Secret Length=${clientSecret?.length}`);
+  
   const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
   
   try {
@@ -24,7 +28,8 @@ const generateAccessToken = async () => {
       },
     });
     return { accessToken: response.data.access_token, baseURL };
-  } catch (error) {
+  } catch (error: any) {
+    console.error('PayPal Token Error:', error.response?.data || error.message);
     throw new AppError('Failed to generate PayPal access token', httpStatus.INTERNAL_SERVER_ERROR);
   }
 };

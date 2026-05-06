@@ -36,8 +36,8 @@ export default {
   },
 
   paypal: {
-    clientId: process.env.PAYPAL_CLIENT_ID,
-    clientSecret: process.env.PAYPAL_CLIENT_SECRET,
+    clientId: process.env.PAYPAL_CLIENT_ID?.trim(),
+    clientSecret: process.env.PAYPAL_CLIENT_SECRET?.trim(),
     mode: process.env.PAYPAL_MODE || 'sandbox',
   },
   cron: {
