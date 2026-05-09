@@ -7,6 +7,8 @@ import { OrderValidation } from './order.validation';
 
 const router = express.Router();
 
+router.post('/webhook', OrderController.handlePayPalWebhook);
+
 router.post(
   '/checkout',
   auth(USER_ROLE.USER),

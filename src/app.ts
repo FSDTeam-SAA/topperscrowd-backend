@@ -24,6 +24,7 @@ applySecurity(app);
 
 app.use("/api/v1", router);
 
+
 app.get("/", (_req, res) => {
   res.send("Hey there! Welcome to our API.");
 });

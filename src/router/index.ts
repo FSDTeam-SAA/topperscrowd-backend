@@ -46,6 +46,7 @@ const moduleRoutes = [
     route: chatroomRouter,
   },
   { path: "/order", route: OrderRouter },
+  // { path: "/orders", route: OrderRouter },
   {
     path: "/coupon",
     route: CouponRouter,

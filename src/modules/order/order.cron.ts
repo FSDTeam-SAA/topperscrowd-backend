@@ -9,23 +9,17 @@ import axios from 'axios';
 /**
  * Advanced Order Cleanup Task for PayPal
  */
-const cleanupPendingOrders = createCronTask('OrderCleanup', async (): Promise<ITaskResult> => {
+const cleanupPendingOrders = createCronTask('OrderReconciler', async (): Promise<ITaskResult> => {
   const result: ITaskResult = { totalScanned: 0, processed: 0, skipped: 0, failed: 0 };
   
   const now = new Date();
   const expiryWindow = config.cron.orderExpiryMinutes * 60 * 1000;
-  const maxAgeWindow = config.cron.maxOrderAgeHours * 60 * 60 * 1000;
-
   const thresholdDate = new Date(now.getTime() - expiryWindow);
-  const maxAgeDate = new Date(now.getTime() - maxAgeWindow);
 
-  // 1. Find pending orders within the valid cleanup window
+  // 1. Find pending orders created more than 2 hours ago
   const pendingOrders = await Order.find({
     paymentStatus: 'pending',
-    createdAt: {
-      $lte: thresholdDate,
-      $gte: maxAgeDate,
-    },
+    createdAt: { $lte: thresholdDate },
     paypalOrderId: { $exists: true, $ne: null },
   });
 
@@ -47,17 +41,12 @@ const cleanupPendingOrders = createCronTask('OrderCleanup', async (): Promise<IT
     });
     accessToken = tokenResponse.data.access_token;
   } catch (err: any) {
-    logger.error(`[OrderCleanup] Failed to generate PayPal access token:`, err.message);
-    return result; // Abort if we can't authenticate
+    logger.error(`[OrderReconciler] Failed to generate PayPal access token: ${err.message}`);
+    return result;
   }
 
   for (const order of pendingOrders) {
     try {
-      if (!order.paypalOrderId) {
-        result.skipped++;
-        continue;
-      }
-
       const getOrderResponse = await axios.get(`${baseURL}/v2/checkout/orders/${order.paypalOrderId}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
@@ -70,41 +59,29 @@ const cleanupPendingOrders = createCronTask('OrderCleanup', async (): Promise<IT
         result.processed++;
       } else if (paypalOrder.status === 'APPROVED') {
         // Attempt to capture it if it's approved but not completed
-        try {
-          const captureResponse = await axios.post(`${baseURL}/v2/checkout/orders/${order.paypalOrderId}/capture`, {}, {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json',
-            },
-          });
+        const captureResponse = await axios.post(`${baseURL}/v2/checkout/orders/${order.paypalOrderId}/capture`, {}, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        });
 
-          if (captureResponse.data.status === 'COMPLETED') {
-            const transactionId = captureResponse.data.purchase_units[0].payments.captures[0].id;
-            await OrderService.finalizeOrder(order, transactionId);
-            result.processed++;
-          } else {
-             result.skipped++;
-          }
-        } catch (captureErr) {
-           result.failed++;
+        if (captureResponse.data.status === 'COMPLETED') {
+          const transactionId = captureResponse.data.purchase_units[0].payments.captures[0].id;
+          await OrderService.finalizeOrder(order, transactionId);
+          result.processed++;
+        } else {
+          result.skipped++;
         }
-      } else if (['VOIDED', 'EXPIRED', 'PAYER_ACTION_REQUIRED'].includes(paypalOrder.status)) {
+      } else {
+        // If it's not paid/approved after 2 hours, mark as cancelled
         order.paymentStatus = 'cancelled';
         await order.save();
         result.processed++;
-      } else {
-        // If it's still CREATED, wait until it expires based on our maxAge logic (or we could cancel it if it's too old)
-        if (new Date(paypalOrder.create_time).getTime() < thresholdDate.getTime()) {
-           order.paymentStatus = 'cancelled';
-           await order.save();
-           result.processed++;
-        } else {
-           result.skipped++;
-        }
       }
     } catch (err: any) {
       result.failed++;
-      logger.error(`[OrderCleanup] Failed to process order ${order._id}:`, err.message);
+      logger.error(`[OrderReconciler] Failed to process order ${order._id}: ${err.message}`);
     }
   }
 

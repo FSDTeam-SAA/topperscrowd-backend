@@ -13,10 +13,7 @@ const generateAccessToken = async () => {
   if (!clientId || !clientSecret) {
     throw new AppError('PayPal credentials are not configured properly', httpStatus.INTERNAL_SERVER_ERROR);
   }
-  const baseURL = mode === 'sandbox' ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com';
-  
-  // Debug: check if credentials have any trailing spaces
-  console.log(`Debug: PayPal Mode=${mode}, ID Length=${clientId?.length}, Secret Length=${clientSecret?.length}`);
+  const baseURL = mode === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com';
   
   const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
   
@@ -157,6 +154,7 @@ const createPayPalOrder = async (
           currency_code: 'USD',
           value: finalTotal.toFixed(2),
         },
+        custom_id: order._id.toString(),
       },
     ],
     application_context: {
@@ -320,10 +318,44 @@ const getOrderById = async (userId: string, orderId: string) => {
   return order;
 };
 
+const verifyWebhookSignature = async (req: any) => {
+  const { accessToken, baseURL } = await generateAccessToken();
+  const webhookId = config.paypal.webhookId;
+
+  if (!webhookId) {
+    throw new AppError('PAYPAL_WEBHOOK_ID is not configured', httpStatus.INTERNAL_SERVER_ERROR);
+  }
+
+  const verificationPayload = {
+    transmission_id: req.headers['paypal-transmission-id'],
+    transmission_time: req.headers['paypal-transmission-time'],
+    cert_url: req.headers['paypal-cert-url'],
+    auth_algo: req.headers['paypal-auth-algo'],
+    transmission_sig: req.headers['paypal-transmission-sig'],
+    webhook_id: webhookId,
+    webhook_event: req.body,
+  };
+
+  try {
+    const response = await axios.post(`${baseURL}/v1/notifications/verify-webhook-signature`, verificationPayload, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    return response.data.verification_status === 'SUCCESS';
+  } catch (error: any) {
+    console.error('PayPal Webhook Verification Error:', error.response?.data || error.message);
+    return false;
+  }
+};
+
 export const OrderService = {
   createPayPalOrder,
   verifyPayment,
   finalizeOrder, // exported for cron job
+  verifyWebhookSignature,
   getMyOrders,
   getOrderById,
 };

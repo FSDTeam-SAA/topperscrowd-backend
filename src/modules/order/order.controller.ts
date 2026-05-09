@@ -3,6 +3,7 @@ import httpStatus from 'http-status';
 import catchAsync from '../../utils/catchAsync';
 import sendResponse from '../../utils/sendResponse';
 import { OrderService } from './order.service';
+import { Order } from './order.model';
 
 const createPayPalOrder = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user.id;
@@ -58,9 +59,38 @@ const getOrderById = catchAsync(async (req: Request, res: Response) => {
 
 // Sob kicu thik ache broooooooooo
 
+const handlePayPalWebhook = catchAsync(async (req: Request, res: Response): Promise<void> => {
+  const isValid = await OrderService.verifyWebhookSignature(req);
+
+  if (!isValid) {
+    res.status(httpStatus.BAD_REQUEST).json({ success: false, message: 'Invalid webhook signature' });
+    return;
+  }
+
+  const event = req.body;
+  console.log(`Received PayPal Webhook: ${event.event_type}`);
+
+  if (event.event_type === 'PAYMENT.CAPTURE.COMPLETED') {
+    const capture = event.resource;
+    const transactionId = capture.id;
+    const orderId = capture.custom_id || capture.reference_id;
+    
+    if (orderId) {
+       const order = await Order.findById(orderId);
+       if (order && order.paymentStatus === 'pending') {
+         await OrderService.finalizeOrder(order, transactionId);
+         console.log(`Order ${orderId} finalized via webhook`);
+       }
+    }
+  }
+
+  res.status(httpStatus.OK).json({ success: true });
+});
+
 export const OrderController = {
   createPayPalOrder,
   verifyPayment,
+  handlePayPalWebhook,
   getMyOrders,
   getOrderById,
 };

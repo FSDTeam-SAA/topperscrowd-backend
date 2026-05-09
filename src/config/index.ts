@@ -38,11 +38,12 @@ export default {
   paypal: {
     clientId: process.env.PAYPAL_CLIENT_ID?.trim(),
     clientSecret: process.env.PAYPAL_CLIENT_SECRET?.trim(),
-    mode: process.env.PAYPAL_MODE || 'sandbox',
+    webhookId: process.env.PAYPAL_WEBHOOK_ID?.trim(),
+    mode: process.env.PAYPAL_MODE?.trim() || 'sandbox',
   },
   cron: {
     checkInterval: process.env.CRON_CHECK_INTERVAL || '*/10 * * * * *', // Every 10 seconds
-    orderExpiryMinutes: Number(process.env.ORDER_EXPIRY_MINUTES) || 20,
+    orderExpiryMinutes: Number(process.env.ORDER_EXPIRY_MINUTES) || 120, // 2 hours
     maxOrderAgeHours: Number(process.env.MAX_ORDER_AGE_HOURS) || 24,
   }
 };
