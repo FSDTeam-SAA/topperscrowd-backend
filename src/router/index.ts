@@ -16,59 +16,18 @@ import libraryRouter from "../modules/library/library.router";
 
 const router = Router();
 
-const moduleRoutes = [
-  {
-    path: "/user",
-    route: userRouter,
-  },
-  {
-    path: "/auth",
-    route: authRouter,
-  },
-  {
-    path: "/bookcategory",
-    route: bookCategoryRouter,
-  },
-  {
-    path: "/book",
-    route: bookRouter,
-  },
-  {
-    path: "/review",
-    route: reviewRouter,
-  },
-  {
-    path: "/cart",
-    route: CartRouter,
-  },
-  {
-    path: "/chatroom",
-    route: chatroomRouter,
-  },
-  { path: "/order", route: OrderRouter },
-  // { path: "/orders", route: OrderRouter },
-  {
-    path: "/coupon",
-    route: CouponRouter,
-  },
-  {
-    path: "/admin-dashboard",
-    route: AdminDashboardRoutes,
-  },
-  {
-    path: "/listener-progress",
-    route: listenerProgressRouter,
-  },
-  {
-    path: "/library",
-    route: libraryRouter,
-  },
-  {
-    path: "/favorite",
-    route: favoriteRouter,
-  },
-];
-
-moduleRoutes.forEach((route) => router.use(route.path, route.route));
+router.use("/user", userRouter);
+router.use("/auth", authRouter);
+router.use("/bookcategory", bookCategoryRouter);
+router.use("/book", bookRouter);
+router.use("/review", reviewRouter);
+router.use("/cart", CartRouter);
+router.use("/chatroom", chatroomRouter);
+router.use("/order", OrderRouter);
+router.use("/coupon", CouponRouter);
+router.use("/admin-dashboard", AdminDashboardRoutes);
+router.use("/listener-progress", listenerProgressRouter);
+router.use("/library", libraryRouter);
+router.use("/favorite", favoriteRouter);
 
 export default router;

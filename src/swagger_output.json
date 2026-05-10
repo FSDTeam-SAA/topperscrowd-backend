@@ -1,0 +1,42 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Toppers Crowd API",
+    "description": "API Documentation for Toppers Crowd Backend",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.kathorianpublishingllc.com/"
+    },
+    {
+      "url": "http://api.kathorianpublishingllc.com/"
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ]
+}

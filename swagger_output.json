@@ -1,0 +1,2062 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Toppers Crowd API",
+    "description": "Complete API Documentation for Toppers Crowd — Kathorian Publishing LLC",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Kathorian Publishing LLC",
+      "url": "https://kathorianpublishingllc.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000",
+      "description": "Development"
+    },
+    {
+      "url": "https://api.kathorianpublishingllc.com",
+      "description": "Production"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "Authentication & session management"
+    },
+    {
+      "name": "Users",
+      "description": "User registration & profile management"
+    },
+    {
+      "name": "Books",
+      "description": "Audiobook CRUD operations"
+    },
+    {
+      "name": "Book Categories",
+      "description": "Book category management"
+    },
+    {
+      "name": "Cart",
+      "description": "Shopping cart operations"
+    },
+    {
+      "name": "Orders",
+      "description": "Checkout, payment & order history"
+    },
+    {
+      "name": "Coupons",
+      "description": "Discount coupon management"
+    },
+    {
+      "name": "Reviews",
+      "description": "Book review operations"
+    },
+    {
+      "name": "Chatroom",
+      "description": "Live chatroom messaging"
+    },
+    {
+      "name": "Library",
+      "description": "User library & listening stats"
+    },
+    {
+      "name": "Listener Progress",
+      "description": "Audiobook playback progress tracking"
+    },
+    {
+      "name": "Favorites",
+      "description": "User favorite books"
+    },
+    {
+      "name": "Admin Dashboard",
+      "description": "Admin analytics & management"
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/user/register": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Register a new user",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "firstName",
+                  "lastName",
+                  "email",
+                  "password"
+                ],
+                "properties": {
+                  "firstName": {
+                    "type": "string",
+                    "example": "John"
+                  },
+                  "lastName": {
+                    "type": "string",
+                    "example": "Doe"
+                  },
+                  "email": {
+                    "type": "string",
+                    "example": "john@example.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "password123"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/verify-email": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Verify email with OTP",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "otp"
+                ],
+                "properties": {
+                  "otp": {
+                    "type": "string",
+                    "example": "123456"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/resend-otp": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Resend email verification OTP",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/user/all-users": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get all users",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/user/my-profile": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get current user profile",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/user/update-profile": {
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Update user profile (with optional image)",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "firstName": {
+                    "type": "string"
+                  },
+                  "lastName": {
+                    "type": "string"
+                  },
+                  "image": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/admin_id": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get admin user ID",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Login with email & password",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "password"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "example": "user@example.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "password123"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh-token": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Refresh access token",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/auth/forgot-password": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Request password reset OTP",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "example": "user@example.com"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/resend-forgot-otp": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Resend forgot password OTP",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/verify-otp": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Verify OTP code",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "otp"
+                ],
+                "properties": {
+                  "otp": {
+                    "type": "string",
+                    "example": "123456"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/reset-password": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Reset password after OTP verification",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "newPassword",
+                  "confirmPassword"
+                ],
+                "properties": {
+                  "newPassword": {
+                    "type": "string",
+                    "example": "newPass123"
+                  },
+                  "confirmPassword": {
+                    "type": "string",
+                    "example": "newPass123"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/change-password": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Change password (logged in user)",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "oldPassword",
+                  "newPassword"
+                ],
+                "properties": {
+                  "oldPassword": {
+                    "type": "string",
+                    "example": "oldPass123"
+                  },
+                  "newPassword": {
+                    "type": "string",
+                    "example": "newPass123"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bookcategory/create-bookcategory": {
+      "post": {
+        "tags": [
+          "Book Categories"
+        ],
+        "summary": "Create a new book category (Admin only)",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "title",
+                  "description"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "example": "Fiction"
+                  },
+                  "description": {
+                    "type": "string",
+                    "example": "Fiction audiobooks"
+                  },
+                  "image": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bookcategory/get-all-bookcategories": {
+      "get": {
+        "tags": [
+          "Book Categories"
+        ],
+        "summary": "Get all book categories",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/bookcategory/get-bookcategory/{bookcategoryId}": {
+      "get": {
+        "tags": [
+          "Book Categories"
+        ],
+        "summary": "Get a single book category",
+        "description": "",
+        "parameters": [
+          {
+            "name": "bookcategoryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/bookcategory/update-bookcategory/{bookcategoryId}": {
+      "patch": {
+        "tags": [
+          "Book Categories"
+        ],
+        "summary": "Update a book category (Admin only)",
+        "description": "",
+        "parameters": [
+          {
+            "name": "bookcategoryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "isActive": {
+                    "type": "boolean"
+                  },
+                  "isDeleted": {
+                    "type": "boolean"
+                  },
+                  "image": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bookcategory/delete-bookcategory/{bookcategoryId}": {
+      "delete": {
+        "tags": [
+          "Book Categories"
+        ],
+        "summary": "Delete a book category (Admin only)",
+        "description": "",
+        "parameters": [
+          {
+            "name": "bookcategoryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/book/create-book": {
+      "post": {
+        "tags": [
+          "Books"
+        ],
+        "summary": "Create a new audiobook (Admin only)",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "title",
+                  "description",
+                  "author",
+                  "genre",
+                  "price",
+                  "language",
+                  "publisher",
+                  "publicationYear",
+                  "audio"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "example": "The Great Gatsby"
+                  },
+                  "description": {
+                    "type": "string",
+                    "example": "A classic novel"
+                  },
+                  "author": {
+                    "type": "string",
+                    "example": "F. Scott Fitzgerald"
+                  },
+                  "genre": {
+                    "type": "string",
+                    "example": "64f1a2b3c4d5e6f7a8b9c0d1"
+                  },
+                  "price": {
+                    "type": "number",
+                    "example": 9.99
+                  },
+                  "language": {
+                    "type": "string",
+                    "example": "English"
+                  },
+                  "publisher": {
+                    "type": "string",
+                    "example": "Kathorian Publishing"
+                  },
+                  "publicationYear": {
+                    "type": "number",
+                    "example": 2024
+                  },
+                  "image": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "audio": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/book/get-all-books": {
+      "get": {
+        "tags": [
+          "Books"
+        ],
+        "summary": "Get all books",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/book/get-book/{bookId}": {
+      "get": {
+        "tags": [
+          "Books"
+        ],
+        "summary": "Get a single book by ID",
+        "description": "",
+        "parameters": [
+          {
+            "name": "bookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/book/get-books-by-category/{bookcategoryId}": {
+      "get": {
+        "tags": [
+          "Books"
+        ],
+        "summary": "Get books by category ID",
+        "description": "",
+        "parameters": [
+          {
+            "name": "bookcategoryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/book/update-book/{bookId}": {
+      "patch": {
+        "tags": [
+          "Books"
+        ],
+        "summary": "Update a book (Admin only)",
+        "description": "",
+        "parameters": [
+          {
+            "name": "bookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "author": {
+                    "type": "string"
+                  },
+                  "genre": {
+                    "type": "string"
+                  },
+                  "price": {
+                    "type": "number"
+                  },
+                  "language": {
+                    "type": "string"
+                  },
+                  "publisher": {
+                    "type": "string"
+                  },
+                  "image": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "audio": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/book/delete-book/{bookId}": {
+      "delete": {
+        "tags": [
+          "Books"
+        ],
+        "summary": "Delete a book (Admin only)",
+        "description": "",
+        "parameters": [
+          {
+            "name": "bookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/review/create-review": {
+      "post": {
+        "tags": [
+          "Reviews"
+        ],
+        "summary": "Create a book review",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "bookId",
+                  "rating",
+                  "comment"
+                ],
+                "properties": {
+                  "bookId": {
+                    "type": "string",
+                    "example": "64f1a2b3c4d5e6f7a8b9c0d1"
+                  },
+                  "rating": {
+                    "type": "number",
+                    "example": 5
+                  },
+                  "comment": {
+                    "type": "string",
+                    "example": "Great book!"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review/{bookId}": {
+      "get": {
+        "tags": [
+          "Reviews"
+        ],
+        "summary": "Get reviews for a book",
+        "description": "",
+        "parameters": [
+          {
+            "name": "bookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/review/{reviewId}": {
+      "patch": {
+        "tags": [
+          "Reviews"
+        ],
+        "summary": "Update a review",
+        "description": "",
+        "parameters": [
+          {
+            "name": "reviewId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "rating": {
+                    "type": "number",
+                    "example": 4
+                  },
+                  "comment": {
+                    "type": "string",
+                    "example": "Updated comment"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Reviews"
+        ],
+        "summary": "Delete a review",
+        "description": "",
+        "parameters": [
+          {
+            "name": "reviewId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cart/add-to-cart": {
+      "post": {
+        "tags": [
+          "Cart"
+        ],
+        "summary": "Add item(s) to cart",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "bookId": {
+                    "type": "string",
+                    "example": "64f1a2b3c4d5e6f7a8b9c0d1"
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "example": 1
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "bookId": {
+                          "type": "string"
+                        },
+                        "quantity": {
+                          "type": "integer",
+                          "example": 1
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cart/get-cart": {
+      "get": {
+        "tags": [
+          "Cart"
+        ],
+        "summary": "Get my cart",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cart/update-quantity": {
+      "patch": {
+        "tags": [
+          "Cart"
+        ],
+        "summary": "Update item quantity in cart",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "bookId",
+                  "quantity"
+                ],
+                "properties": {
+                  "bookId": {
+                    "type": "string",
+                    "example": "64f1a2b3c4d5e6f7a8b9c0d1"
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "example": 2
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cart/clear-cart": {
+      "delete": {
+        "tags": [
+          "Cart"
+        ],
+        "summary": "Clear entire cart",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cart/remove-item/{bookId}": {
+      "delete": {
+        "tags": [
+          "Cart"
+        ],
+        "summary": "Remove a specific item from cart",
+        "description": "",
+        "parameters": [
+          {
+            "name": "bookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/chatroom/messages": {
+      "get": {
+        "tags": [
+          "Chatroom"
+        ],
+        "summary": "Get chatroom messages",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Chatroom"
+        ],
+        "summary": "Send a message",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "content"
+                ],
+                "properties": {
+                  "content": {
+                    "type": "string",
+                    "example": "Hello everyone!"
+                  },
+                  "replyTo": {
+                    "type": "object",
+                    "properties": {
+                      "messageId": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/chatroom/messages/pinned": {
+      "get": {
+        "tags": [
+          "Chatroom"
+        ],
+        "summary": "Get pinned messages",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/chatroom/messages/my-replies": {
+      "get": {
+        "tags": [
+          "Chatroom"
+        ],
+        "summary": "Get replies directed to me",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/chatroom/messages/{messageId}/react": {
+      "post": {
+        "tags": [
+          "Chatroom"
+        ],
+        "summary": "React to a message",
+        "description": "",
+        "parameters": [
+          {
+            "name": "messageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "emoji"
+                ],
+                "properties": {
+                  "emoji": {
+                    "type": "string",
+                    "example": "👍"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/chatroom/messages/{messageId}/pin": {
+      "patch": {
+        "tags": [
+          "Chatroom"
+        ],
+        "summary": "Pin or unpin a message",
+        "description": "",
+        "parameters": [
+          {
+            "name": "messageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/chatroom/messages/{messageId}": {
+      "delete": {
+        "tags": [
+          "Chatroom"
+        ],
+        "summary": "Delete a message",
+        "description": "",
+        "parameters": [
+          {
+            "name": "messageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/order/webhook": {
+      "post": {
+        "tags": [
+          "Orders"
+        ],
+        "summary": "PayPal webhook handler",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "req": {
+                    "example": "any"
+                  },
+                  "resource": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/order/checkout": {
+      "post": {
+        "tags": [
+          "Orders"
+        ],
+        "summary": "Create a PayPal checkout order",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "bookId": {
+                    "type": "string",
+                    "example": "64f1a2b3c4d5e6f7a8b9c0d1"
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "example": 1
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "bookId": {
+                          "type": "string"
+                        },
+                        "quantity": {
+                          "type": "integer",
+                          "example": 1
+                        }
+                      }
+                    }
+                  },
+                  "couponCode": {
+                    "type": "string",
+                    "example": "SAVE20"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/order/verify-payment": {
+      "post": {
+        "tags": [
+          "Orders"
+        ],
+        "summary": "Verify a PayPal payment",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "paypalOrderId"
+                ],
+                "properties": {
+                  "paypalOrderId": {
+                    "type": "string",
+                    "example": "5O190127TN364715T"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/order/my-orders": {
+      "get": {
+        "tags": [
+          "Orders"
+        ],
+        "summary": "Get my order history",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/order/{orderId}": {
+      "get": {
+        "tags": [
+          "Orders"
+        ],
+        "summary": "Get order by ID",
+        "description": "",
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/coupon/create-coupon": {
+      "post": {
+        "tags": [
+          "Coupons"
+        ],
+        "summary": "Create a new coupon (Admin only)",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "codeName",
+                  "expiryDate",
+                  "usesLimit",
+                  "discountType",
+                  "discountAmount"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "example": "user@example.com"
+                  },
+                  "codeName": {
+                    "type": "string",
+                    "example": "SAVE20"
+                  },
+                  "expiryDate": {
+                    "type": "string",
+                    "example": "2024-12-31"
+                  },
+                  "usesLimit": {
+                    "type": "integer",
+                    "example": 100
+                  },
+                  "discountType": {
+                    "type": "string",
+                    "enum": [
+                      "flat",
+                      "percentage"
+                    ],
+                    "example": "percentage"
+                  },
+                  "discountAmount": {
+                    "type": "number",
+                    "example": 20
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/coupon/my-coupons": {
+      "get": {
+        "tags": [
+          "Coupons"
+        ],
+        "summary": "Get my coupons",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin-dashboard/recent-orders-stats": {
+      "get": {
+        "tags": [
+          "Admin Dashboard"
+        ],
+        "summary": "Get recent orders and stats (Admin only)",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin-dashboard/users-management": {
+      "get": {
+        "tags": [
+          "Admin Dashboard"
+        ],
+        "summary": "Get users management data (Admin only)",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin-dashboard/audio-management": {
+      "get": {
+        "tags": [
+          "Admin Dashboard"
+        ],
+        "summary": "Get audio management data (Admin only)",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin-dashboard/reviews-management": {
+      "get": {
+        "tags": [
+          "Admin Dashboard"
+        ],
+        "summary": "Get reviews management data (Admin only)",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/listener-progress/": {
+      "post": {
+        "tags": [
+          "Listener Progress"
+        ],
+        "summary": "Update or create listening progress",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "bookId",
+                  "progress"
+                ],
+                "properties": {
+                  "bookId": {
+                    "type": "string",
+                    "example": "64f1a2b3c4d5e6f7a8b9c0d1"
+                  },
+                  "progress": {
+                    "type": "number",
+                    "example": 120
+                  },
+                  "totalDuration": {
+                    "type": "number",
+                    "example": 3600
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/listener-progress/my-progress": {
+      "get": {
+        "tags": [
+          "Listener Progress"
+        ],
+        "summary": "Get my total progress records",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/listener-progress/{bookId}": {
+      "get": {
+        "tags": [
+          "Listener Progress"
+        ],
+        "summary": "Get progress for a specific book",
+        "description": "",
+        "parameters": [
+          {
+            "name": "bookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/library/stats": {
+      "get": {
+        "tags": [
+          "Library"
+        ],
+        "summary": "Get library statistics",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/library/continue-listening": {
+      "get": {
+        "tags": [
+          "Library"
+        ],
+        "summary": "Get books to continue listening",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/library/recent-purchases": {
+      "get": {
+        "tags": [
+          "Library"
+        ],
+        "summary": "Get recently purchased books",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/library/my-books": {
+      "get": {
+        "tags": [
+          "Library"
+        ],
+        "summary": "Get all my books",
+        "description": "",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/favorite/toggle": {
+      "post": {
+        "tags": [
+          "Favorites"
+        ],
+        "summary": "Toggle favorite status for a book",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "bookId"
+                ],
+                "properties": {
+                  "bookId": {
+                    "type": "string",
+                    "example": "64f1a2b3c4d5e6f7a8b9c0d1"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/favorite/": {
+      "get": {
+        "tags": [
+          "Favorites"
+        ],
+        "summary": "Get my favorite books",
+        "description": "",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Enter your JWT token"
+      }
+    }
+  }
+}
