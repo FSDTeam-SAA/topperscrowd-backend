@@ -29,7 +29,7 @@ const registerUser = async (payload: IUser) => {
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   console.log(otp);
   const hashedOtp = await bcrypt.hash(otp, 10);
-  const otpExpires = new Date(Date.now() + 5 * 60 * 1000);
+  const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
 
   let result: IUser;
 
@@ -54,7 +54,7 @@ const registerUser = async (payload: IUser) => {
   await sendEmail({
     to: result.email,
     subject: "Verify your email",
-    html: verificationCodeTemplate(otp),
+    html: verificationCodeTemplate(otp, result.firstName),
   });
 
   // JWT payload
@@ -139,7 +139,7 @@ const resendOtpCode = async (email: string) => {
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   const hashedOtp = await bcrypt.hash(otp, 10);
-  const otpExpires = new Date(Date.now() + 5 * 60 * 1000);
+  const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
 
   const result = await User.findOneAndUpdate(
     { email },
@@ -153,7 +153,7 @@ const resendOtpCode = async (email: string) => {
   await sendEmail({
     to: existingUser.email,
     subject: "Verify your email",
-    html: verificationCodeTemplate(otp),
+    html: verificationCodeTemplate(otp, existingUser.firstName),
   });
   return result;
 };

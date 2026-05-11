@@ -12,33 +12,41 @@ const sendMessageTemplate = ({
   message,
 }: MessageTemplateProps): string => {
   return `
-    <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 640px; margin: auto; padding: 30px 16px; background-color: #f4f4f5;">
-      <div style="background-color: #ffffff; border-radius: 10px; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06); overflow: hidden;">
+    <div style="background-color: #F9FAFB; padding: 50px 20px; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1F2937;">
+      <div style="max-width: 640px; margin: 0 auto; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.05);">
         
-        <header style="padding: 24px 32px; border-bottom: 1px solid #e5e7eb; background-color: #ffffff; text-align: center;">
-          <h1 style="margin: 0; font-size: 24px; color: #111827;">${companyName}</h1>
-          <p style="margin-top: 6px; font-size: 14px; color: #6b7280;">New message received via contact form</p>
+        <!-- Header -->
+        <header style="padding: 30px; text-align: center; border-bottom: 1px solid #F3F4F6;">
+          <h1 style="margin: 0; font-size: 24px; font-weight: 800; color: #7256F2;">${companyName}</h1>
+          <p style="margin: 8px 0 0; font-size: 14px; color: #6B7280; font-weight: 500;">New Inquiry Received</p>
         </header>
 
-        <section style="padding: 28px 32px;">
-          <div style="margin-bottom: 16px;">
-            <strong style="display: block; color: #374151; font-size: 14px; margin-bottom: 4px;">Sender Email:</strong>
-            <span style="color: #111827; font-size: 15px;">${email}</span>
-          </div>
-          
-          <div style="margin-bottom: 16px;">
-            <strong style="display: block; color: #374151; font-size: 14px; margin-bottom: 4px;">Subject:</strong>
-            <span style="color: #111827; font-size: 15px;">${subject}</span>
+        <!-- Content -->
+        <section style="padding: 40px 30px;">
+          <div style="margin-bottom: 25px; background: #F9FAFB; padding: 20px; border-radius: 12px;">
+            <div style="margin-bottom: 12px;">
+              <strong style="display: block; color: #374151; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">From:</strong>
+              <span style="color: #111827; font-size: 16px; font-weight: 500;">${email}</span>
+            </div>
+            
+            <div>
+              <strong style="display: block; color: #374151; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Subject:</strong>
+              <span style="color: #111827; font-size: 16px; font-weight: 500;">${subject}</span>
+            </div>
           </div>
 
-          <div style="margin-top: 20px; padding: 16px 20px; background-color: #f9fafb; border-left: 4px solid #111827; border-radius: 6px;">
-            <p style="margin: 0; font-size: 15px; color: #374151; white-space: pre-wrap;">${message}</p>
+          <div style="margin-top: 30px;">
+            <strong style="display: block; color: #374151; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">Message:</strong>
+            <div style="padding: 24px; background-color: #ffffff; border: 1px solid #E5E7EB; border-radius: 12px; color: #374151; font-size: 16px; line-height: 1.6; white-space: pre-wrap;">${message}</div>
           </div>
         </section>
 
-        <footer style="padding: 20px 32px; background-color: #fafafa; border-top: 1px solid #e5e7eb; text-align: center; font-size: 13px; color: #6b7280;">
-          This message was sent via the <strong>${companyName}</strong> contact form.<br/>
-          &copy; 2025 ${companyName}. All rights reserved.
+        <!-- Footer -->
+        <footer style="padding: 30px; background-color: #F9FAFB; border-top: 1px solid #F3F4F6; text-align: center;">
+          <p style="margin: 0; font-size: 13px; color: #9CA3AF; line-height: 1.5;">
+            This message was sent via the <strong>${companyName}</strong> contact form.<br/>
+            &copy; ${new Date().getFullYear()} ${companyName}. All rights reserved.
+          </p>
         </footer>
 
       </div>

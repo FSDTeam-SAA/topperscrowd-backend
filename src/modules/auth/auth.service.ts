@@ -109,7 +109,7 @@ const forgotPassword = async (email: string) => {
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   const hashedOtp = await bcrypt.hash(otp, 10);
-  const otpExpires = new Date(Date.now() + 5 * 60 * 1000);
+  const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
 
   await User.findByIdAndUpdate(
     isExistingUser._id,
@@ -123,7 +123,7 @@ const forgotPassword = async (email: string) => {
   await sendEmail({
     to: isExistingUser.email,
     subject: "Reset your password",
-    html: verificationCodeTemplate(otp),
+    html: verificationCodeTemplate(otp, isExistingUser.firstName),
   });
 
   const JwtToken = {
@@ -151,7 +151,7 @@ const resendForgotOtpCode = async (email: string) => {
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   const hashedOtp = await bcrypt.hash(otp, 10);
-  const otpExpires = new Date(Date.now() + 5 * 60 * 1000);
+  const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
 
   await User.findOneAndUpdate(
     { email },
@@ -165,7 +165,7 @@ const resendForgotOtpCode = async (email: string) => {
   await sendEmail({
     to: existingUser.email,
     subject: `${companyName} - Password Reset OTP`,
-    html: verificationCodeTemplate(otp),
+    html: verificationCodeTemplate(otp, existingUser.firstName),
   });
   // return result;
 };
