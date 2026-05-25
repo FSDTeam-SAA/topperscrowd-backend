@@ -42,7 +42,7 @@ export default {
     mode: process.env.PAYPAL_MODE?.trim() || 'sandbox',
   },
   cron: {
-    checkInterval: process.env.CRON_CHECK_INTERVAL || '*/10 * * * * *', // Every 10 seconds
+    checkInterval: process.env.CRON_CHECK_INTERVAL || '*/5 * * * *',
     orderExpiryMinutes: Number(process.env.ORDER_EXPIRY_MINUTES) || 120, // 2 hours
     maxOrderAgeHours: Number(process.env.MAX_ORDER_AGE_HOURS) || 24,
   }
