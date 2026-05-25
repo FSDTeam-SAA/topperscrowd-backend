@@ -46,7 +46,7 @@ router.get(
   // #swagger.tags = ['Cart']
   // #swagger.summary = 'Get my cart'
   // #swagger.security = [{ "bearerAuth": [] }]
-  auth(USER_ROLE.USER),
+  auth(USER_ROLE.USER,USER_ROLE.ADMIN),
   CartController.getMyCart
 );
 
