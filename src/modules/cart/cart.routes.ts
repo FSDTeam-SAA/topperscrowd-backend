@@ -70,7 +70,7 @@ router.patch(
       }
     }
   } */
-  auth(USER_ROLE.USER),
+  auth(USER_ROLE.USER, USER_ROLE.ADMIN),
   validateRequest(CartValidation.updateQuantityZodSchema),
   CartController.updateQuantity
 );
