@@ -13,6 +13,7 @@ import reviewRouter from "../modules/review/review.router";
 import { AdminDashboardRoutes } from "../modules/adminDashboard/adminDashboard.routes";
 import listenerProgressRouter from "../modules/listenerProgress/listenerProgress.router";
 import libraryRouter from "../modules/library/library.router";
+import { coverRoutes } from "../modules/cover/cover.routes";
 
 const router = Router();
 
@@ -29,5 +30,6 @@ router.use("/admin-dashboard", AdminDashboardRoutes);
 router.use("/listener-progress", listenerProgressRouter);
 router.use("/library", libraryRouter);
 router.use("/favorite", favoriteRouter);
+router.use("/cover", coverRoutes);
 
 export default router;

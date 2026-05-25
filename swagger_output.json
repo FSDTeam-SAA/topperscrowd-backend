@@ -2178,6 +2178,216 @@
           }
         ]
       }
+    },
+    "/api/v1/cover/create-cover": {
+      "post": {
+        "tags": [
+          "Covers"
+        ],
+        "summary": "Create a new book cover (Admin only)",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "title",
+                  "description",
+                  "edition",
+                  "image"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "example": "Kathor Cover"
+                  },
+                  "description": {
+                    "type": "string",
+                    "example": "A premium catalog book cover"
+                  },
+                  "edition": {
+                    "type": "string",
+                    "example": "1st Edition"
+                  },
+                  "image": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cover/update-cover/{coverId}": {
+      "patch": {
+        "tags": [
+          "Covers"
+        ],
+        "summary": "Update an existing book cover (Admin only)",
+        "description": "",
+        "parameters": [
+          {
+            "name": "coverId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Cover Database ID"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "example": "Updated Kathor Cover"
+                  },
+                  "description": {
+                    "type": "string",
+                    "example": "An updated premium catalog book cover"
+                  },
+                  "edition": {
+                    "type": "string",
+                    "example": "2nd Edition"
+                  },
+                  "image": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cover/delete-cover/{coverId}": {
+      "delete": {
+        "tags": [
+          "Covers"
+        ],
+        "summary": "Delete a book cover (Admin only)",
+        "description": "",
+        "parameters": [
+          {
+            "name": "coverId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Cover Database ID"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cover/get-all-covers": {
+      "get": {
+        "tags": [
+          "Covers"
+        ],
+        "summary": "Get all book covers with pagination and search",
+        "description": "",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "default": 1,
+            "description": "Page number",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "default": 10,
+            "description": "Limit per page",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Search string (title/description/edition)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/cover/get-single-cover/{coverId}": {
+      "get": {
+        "tags": [
+          "Covers"
+        ],
+        "summary": "Get a single book cover by ID",
+        "description": "",
+        "parameters": [
+          {
+            "name": "coverId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Cover Database ID"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": []
+      }
     }
   },
   "components": {
