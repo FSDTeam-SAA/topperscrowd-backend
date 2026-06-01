@@ -34,9 +34,7 @@ const corsOptions = {
     "https://kathorianpublishingllc.com",
     "https://www.kathorianpublishingllc.com",
     "https://www.kathorianpublishingllc.com/admin-dashboard",
-    "https://kathorianpublishingllc.com/admin-dashboard",
-    "https://www.kathorianpublishingllc.com/auth",
-    "https://kathorianpublishingllc.com/auth"
+    "https://kathorianpublishingllc.com/admin-dashboard"
   ],
   methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE"],
   credentials: true,
