@@ -92,4 +92,51 @@ router.get(
   OrderController.getOrderById
 );
 
+router.patch(
+  '/update-order/:orderId',
+  // #swagger.tags = ['Orders']
+  // #swagger.summary = 'Update an order by ID (Admin only)'
+  // #swagger.security = [{ "bearerAuth": [] }]
+  /* #swagger.parameters['orderId'] = {
+    in: 'path',
+    required: true,
+    type: 'string',
+    description: 'Order ID to update'
+  } */
+  /* #swagger.requestBody = {
+    required: true,
+    content: {
+      "application/json": {
+        schema: {
+          type: "object",
+          properties: {
+            paymentStatus: { type: "string", enum: ["pending", "paid", "cancelled"] },
+            totalAmount: { type: "number" },
+            paypalOrderId: { type: "string" },
+            transactionId: { type: "string" }
+          }
+        }
+      }
+    }
+  } */
+  auth(USER_ROLE.ADMIN),
+  validateRequest(OrderValidation.updateOrderSchema),
+  OrderController.updateOrder
+);
+
+router.delete(
+  '/delete-order/:orderId',
+  // #swagger.tags = ['Orders']
+  // #swagger.summary = 'Delete an order by ID (Admin only)'
+  // #swagger.security = [{ "bearerAuth": [] }]
+  /* #swagger.parameters['orderId'] = {
+    in: 'path',
+    required: true,
+    type: 'string',
+    description: 'Order ID to delete'
+  } */
+  auth(USER_ROLE.ADMIN),
+  OrderController.deleteOrder
+);
+
 export const OrderRouter = router;

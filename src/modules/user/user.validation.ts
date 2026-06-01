@@ -17,6 +17,21 @@ const userValidationSchema = z.object({
   }),
 });
 
+const updateUserByAdminSchema = z.object({
+  body: z.object({
+    firstName: z.string().optional(),
+    lastName: z.string().optional(),
+    phone: z.string().optional(),
+    street: z.string().optional(),
+    location: z.string().optional(),
+    postalCode: z.string().optional(),
+    dateOfBirth: z.string().optional(),
+    role: z.enum(["user", "admin"]).optional(),
+    isVerified: z.boolean().optional(),
+  }),
+});
+
 export const userValidation = {
   userValidationSchema,
+  updateUserByAdminSchema,
 };

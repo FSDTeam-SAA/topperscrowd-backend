@@ -87,10 +87,36 @@ const handlePayPalWebhook = catchAsync(async (req: Request, res: Response): Prom
   res.status(httpStatus.OK).json({ success: true });
 });
 
+const updateOrder = catchAsync(async (req: Request, res: Response) => {
+  const { orderId } = req.params;
+  const result = await OrderService.updateOrder(orderId, req.body);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Order updated successfully by admin',
+    data: result,
+  });
+});
+
+const deleteOrder = catchAsync(async (req: Request, res: Response) => {
+  const { orderId } = req.params;
+  const result = await OrderService.deleteOrder(orderId);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Order deleted successfully by admin',
+    data: result,
+  });
+});
+
 export const OrderController = {
   createPayPalOrder,
   verifyPayment,
   handlePayPalWebhook,
   getMyOrders,
   getOrderById,
+  updateOrder,
+  deleteOrder,
 };

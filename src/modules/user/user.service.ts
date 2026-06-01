@@ -220,6 +220,59 @@ const updateUserProfile = async (payload: any, email: string, file: any) => {
   return result;
 };
 
+const updateUserByAdmin = async (userId: string, payload: any, file: any) => {
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new AppError(
+      "No account found with the provided credentials.",
+      StatusCodes.NOT_FOUND
+    );
+  }
+
+  let updateData: any = { ...payload };
+  let oldImagePublicId: string | undefined;
+
+  if (file) {
+    const uploadResult = await uploadToCloudinary(file.path, "users");
+    oldImagePublicId = user.image?.public_id;
+
+    updateData.image = {
+      public_id: uploadResult.public_id,
+      url: uploadResult.secure_url,
+    };
+  }
+
+  const result = await User.findByIdAndUpdate(userId, updateData, {
+    new: true,
+    runValidators: true,
+  }).select(
+    "-password -otp -otpExpires -resetPasswordOtp -resetPasswordOtpExpires"
+  );
+
+  if (file && oldImagePublicId) {
+    await deleteFromCloudinary(oldImagePublicId, "image");
+  }
+
+  return result;
+};
+
+const deleteUser = async (userId: string) => {
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new AppError("User not found", StatusCodes.NOT_FOUND);
+  }
+
+  const oldImagePublicId = user.image?.public_id;
+
+  const result = await User.findByIdAndDelete(userId);
+
+  if (oldImagePublicId) {
+    await deleteFromCloudinary(oldImagePublicId, "image");
+  }
+
+  return result;
+};
+
 const userService = {
   registerUser,
   verifyEmail,
@@ -228,6 +281,8 @@ const userService = {
   getMyProfile,
   updateUserProfile,
   getAdminId,
+  updateUserByAdmin,
+  deleteUser,
 };
 
 export default userService;

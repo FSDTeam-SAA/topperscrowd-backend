@@ -117,5 +117,58 @@ router.get(
   userController.getAdminId
 );
 
+router.patch(
+  "/update-user/:userId",
+  // #swagger.tags = ['Users']
+  // #swagger.summary = 'Update a user profile by ID (Admin only)'
+  // #swagger.security = [{ "bearerAuth": [] }]
+  /* #swagger.parameters['userId'] = {
+    in: 'path',
+    required: true,
+    type: 'string',
+    description: 'User ID to update'
+  } */
+  /* #swagger.requestBody = {
+    required: true,
+    content: {
+      "multipart/form-data": {
+        schema: {
+          type: "object",
+          properties: {
+            firstName: { type: "string" },
+            lastName: { type: "string" },
+            phone: { type: "string" },
+            street: { type: "string" },
+            location: { type: "string" },
+            postalCode: { type: "string" },
+            role: { type: "string", enum: ["user", "admin"] },
+            isVerified: { type: "boolean" },
+            image: { type: "string", format: "binary" }
+          }
+        }
+      }
+    }
+  } */
+  upload.single("image"),
+  auth(USER_ROLE.ADMIN),
+  validateRequest(userValidation.updateUserByAdminSchema),
+  userController.updateUserByAdmin
+);
+
+router.delete(
+  "/delete-user/:userId",
+  // #swagger.tags = ['Users']
+  // #swagger.summary = 'Delete a user by ID (Admin only)'
+  // #swagger.security = [{ "bearerAuth": [] }]
+  /* #swagger.parameters['userId'] = {
+    in: 'path',
+    required: true,
+    type: 'string',
+    description: 'User ID to delete'
+  } */
+  auth(USER_ROLE.ADMIN),
+  userController.deleteUser
+);
+
 const userRouter = router;
 export default userRouter;

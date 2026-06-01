@@ -20,7 +20,17 @@ const verifyPaymentSchema = z.object({
   }),
 });
 
+const updateOrderSchema = z.object({
+  body: z.object({
+    paymentStatus: z.enum(['pending', 'paid', 'cancelled']).optional(),
+    totalAmount: z.number().optional(),
+    paypalOrderId: z.string().optional(),
+    transactionId: z.string().optional(),
+  }),
+});
+
 export const OrderValidation = {
   createCheckoutSessionSchema,
   verifyPaymentSchema,
+  updateOrderSchema,
 };

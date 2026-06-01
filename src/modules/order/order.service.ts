@@ -355,6 +355,22 @@ const verifyWebhookSignature = async (req: any) => {
   }
 };
 
+const updateOrder = async (orderId: string, payload: any) => {
+  const order = await Order.findByIdAndUpdate(orderId, payload, { new: true, runValidators: true });
+  if (!order) {
+    throw new AppError('Order not found', httpStatus.NOT_FOUND);
+  }
+  return order;
+};
+
+const deleteOrder = async (orderId: string) => {
+  const order = await Order.findByIdAndDelete(orderId);
+  if (!order) {
+    throw new AppError('Order not found', httpStatus.NOT_FOUND);
+  }
+  return order;
+};
+
 export const OrderService = {
   createPayPalOrder,
   verifyPayment,
@@ -362,4 +378,6 @@ export const OrderService = {
   verifyWebhookSignature,
   getMyOrders,
   getOrderById,
+  updateOrder,
+  deleteOrder,
 };

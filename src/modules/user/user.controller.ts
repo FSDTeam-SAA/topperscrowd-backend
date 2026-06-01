@@ -96,6 +96,30 @@ const updateUserProfile = catchAsync(async (req, res) => {
   });
 });
 
+const updateUserByAdmin = catchAsync(async (req, res) => {
+  const { userId } = req.params;
+  const result = await userService.updateUserByAdmin(userId, req.body, req.file);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "User profile updated successfully by admin.",
+    data: result,
+  });
+});
+
+const deleteUser = catchAsync(async (req, res) => {
+  const { userId } = req.params;
+  const result = await userService.deleteUser(userId);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "User deleted successfully by admin.",
+    data: result,
+  });
+});
+
 const userController = {
   registerUser,
   verifyEmail,
@@ -104,6 +128,8 @@ const userController = {
   getMyProfile,
   updateUserProfile,
   getAdminId,
+  updateUserByAdmin,
+  deleteUser,
 };
 
 export default userController;
