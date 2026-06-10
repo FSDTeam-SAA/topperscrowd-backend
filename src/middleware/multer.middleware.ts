@@ -1,6 +1,8 @@
 import multer from "multer";
 import path from "path";
 
+const MAX_UPLOAD_SIZE_BYTES = 1024 * 1024 * 1024; // 1 GB
+
 const storage = multer.diskStorage({
   destination: function (_req, _file, cb) {
     cb(null, path.join(__dirname, "../../uploads"));
@@ -16,7 +18,7 @@ const storage = multer.diskStorage({
 
 export const upload = multer({
   storage: storage,
-  limits: { fileSize: 50 * 1024 * 1024 },
+  limits: { fileSize: MAX_UPLOAD_SIZE_BYTES },
   fileFilter: (_req, file, cb) => {
     let filetypes: RegExp;
     if (file.fieldname === "image" || file.fieldname === "coverImage") {

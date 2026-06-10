@@ -1,7 +1,10 @@
-import { v2 as cloudinary } from "cloudinary";
+import { UploadApiResponse, v2 as cloudinary } from "cloudinary";
 import fs from "fs";
 import config from "../config";
 import AppError from "../errors/AppError";
+
+const LARGE_UPLOAD_THRESHOLD_BYTES = 100 * 1024 * 1024;
+const CLOUDINARY_CHUNK_SIZE_BYTES = 20 * 1024 * 1024;
 
 // configure Cloudinary
 cloudinary.config({
@@ -13,21 +16,29 @@ cloudinary.config({
 // upload file
 export const uploadToCloudinary = async (filePath: string, folder: string) => {
   try {
-    const result = await cloudinary.uploader.upload(filePath, {
+    const fileSize = fs.statSync(filePath).size;
+    const uploadOptions = {
       folder,
-      resource_type: "auto",
-    });
+      resource_type: "auto" as const,
+    };
 
+    const result =
+      fileSize > LARGE_UPLOAD_THRESHOLD_BYTES
+        ? await (cloudinary.uploader.upload_large(filePath, {
+            ...uploadOptions,
+            chunk_size: CLOUDINARY_CHUNK_SIZE_BYTES,
+          }) as Promise<UploadApiResponse>)
+        : await cloudinary.uploader.upload(filePath, uploadOptions);
 
     // delete local file after upload
-    fs.unlinkSync(filePath);
+    await fs.promises.unlink(filePath);
 
     return {
       public_id: result.public_id,
       secure_url: result.secure_url,
     };
-  } catch (error: any) {
-    fs.unlinkSync(filePath);
+  } catch {
+    await fs.promises.unlink(filePath).catch(() => undefined);
     throw new AppError("Failed to upload file to Cloudinary", 400);
   }
 };
