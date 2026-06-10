@@ -14,6 +14,8 @@ import { AdminDashboardRoutes } from "../modules/adminDashboard/adminDashboard.r
 import listenerProgressRouter from "../modules/listenerProgress/listenerProgress.router";
 import libraryRouter from "../modules/library/library.router";
 import { coverRoutes } from "../modules/cover/cover.routes";
+import { ecategoryRoutes } from "../modules/ecategory/ecategory.routes";
+import { ebookRoutes } from "../modules/ebook/ebook.route";
 
 const router = Router();
 
@@ -31,5 +33,7 @@ router.use("/listener-progress", listenerProgressRouter);
 router.use("/library", libraryRouter);
 router.use("/favorite", favoriteRouter);
 router.use("/cover", coverRoutes);
+router.use("/ecategory", ecategoryRoutes);
+router.use("/ebook", ebookRoutes);
 
 export default router;

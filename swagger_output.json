@@ -71,6 +71,10 @@
     {
       "name": "Admin Dashboard",
       "description": "Admin analytics & management"
+    },
+    {
+      "name": "Ebooks",
+      "description": "E-book management & downloads"
     }
   ],
   "paths": {
@@ -2580,6 +2584,323 @@
           }
         },
         "security": []
+      }
+    },
+    "/api/v1/ecategory/get-all": {
+      "get": {
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/v1/ecategory/create-ecategory": {
+      "post": {
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/v1/ecategory/update/{EcatId}": {
+      "patch": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "EcatId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/v1/ecategory/delete/{EcatId}": {
+      "delete": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "EcatId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/v1/ebook/get-all": {
+      "get": {
+        "tags": [
+          "Ebooks"
+        ],
+        "summary": "Get all ebooks (public)",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/ebook/{ebookId}": {
+      "get": {
+        "tags": [
+          "Ebooks"
+        ],
+        "summary": "Get a single ebook by ID (public)",
+        "description": "",
+        "parameters": [
+          {
+            "name": "ebookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": []
+      },
+      "patch": {
+        "tags": [
+          "Ebooks"
+        ],
+        "summary": "Update an ebook (Admin only)",
+        "description": "",
+        "parameters": [
+          {
+            "name": "ebookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "slug": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "author": {
+                    "type": "string"
+                  },
+                  "formatType": {
+                    "type": "string",
+                    "enum": [
+                      "PDF",
+                      "EPUB"
+                    ]
+                  },
+                  "category": {
+                    "type": "string"
+                  },
+                  "isPremium": {
+                    "type": "string",
+                    "enum": [
+                      "true",
+                      "false"
+                    ]
+                  },
+                  "coverImage": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Ebooks"
+        ],
+        "summary": "Delete an ebook (Admin only)",
+        "description": "",
+        "parameters": [
+          {
+            "name": "ebookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ebook/create-ebook": {
+      "post": {
+        "tags": [
+          "Ebooks"
+        ],
+        "summary": "Create a new ebook (Admin only)",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "title",
+                  "slug",
+                  "description",
+                  "author",
+                  "formatType",
+                  "category",
+                  "coverImage",
+                  "file"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "example": "Clean Code"
+                  },
+                  "slug": {
+                    "type": "string",
+                    "example": "clean-code"
+                  },
+                  "description": {
+                    "type": "string",
+                    "example": "A handbook of agile software craftsmanship"
+                  },
+                  "author": {
+                    "type": "string",
+                    "example": "Robert C. Martin"
+                  },
+                  "formatType": {
+                    "type": "string",
+                    "enum": [
+                      "PDF",
+                      "EPUB"
+                    ],
+                    "example": "PDF"
+                  },
+                  "category": {
+                    "type": "string",
+                    "example": "64f1a2b3c4d5e6f7a8b9c0d1"
+                  },
+                  "isPremium": {
+                    "type": "string",
+                    "enum": [
+                      "true",
+                      "false"
+                    ],
+                    "example": "false"
+                  },
+                  "coverImage": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ebook/{ebookId}/download": {
+      "patch": {
+        "tags": [
+          "Ebooks"
+        ],
+        "summary": "Track ebook download (Authenticated users)",
+        "description": "",
+        "parameters": [
+          {
+            "name": "ebookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     }
   },
