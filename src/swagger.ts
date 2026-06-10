@@ -28,6 +28,7 @@ const doc = {
     { name: 'Listener Progress', description: 'Audiobook playback progress tracking' },
     { name: 'Favorites', description: 'User favorite books' },
     { name: 'Admin Dashboard', description: 'Admin analytics & management' },
+    { name: 'Ebook Categories', description: 'E-book category management' },
     { name: 'Ebooks', description: 'E-book management & downloads' },
   ],
   components: {

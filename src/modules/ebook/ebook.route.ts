@@ -12,8 +12,23 @@ const router = Router();
 router.get(
     "/get-all",
     // #swagger.tags = ['Ebooks']
-    // #swagger.summary = 'Get all ebooks (public)'
+    // #swagger.summary = 'Get all ebooks'
+    // #swagger.description = 'Retrieve all ebooks, optionally filtered by ebook category or format.'
     // #swagger.security = []
+    /* #swagger.parameters['category'] = {
+      in: 'query',
+      type: 'string',
+      description: 'Ebook category ObjectId'
+    } */
+    /* #swagger.parameters['formatType'] = {
+      in: 'query',
+      type: 'string',
+      enum: ['PDF', 'EPUB'],
+      description: 'Filter ebooks by document format'
+    } */
+    /* #swagger.responses[200] = {
+      description: 'Ebooks retrieved successfully'
+    } */
     ebookController.getAllEbooks
 );
 
@@ -22,7 +37,20 @@ router.get(
     "/:ebookId",
     // #swagger.tags = ['Ebooks']
     // #swagger.summary = 'Get a single ebook by ID (public)'
+    // #swagger.description = 'Retrieve one ebook with populated category details.'
     // #swagger.security = []
+    /* #swagger.parameters['ebookId'] = {
+      in: 'path',
+      required: true,
+      type: 'string',
+      description: 'Ebook database ObjectId'
+    } */
+    /* #swagger.responses[200] = {
+      description: 'Ebook retrieved successfully'
+    } */
+    /* #swagger.responses[404] = {
+      description: 'Ebook item not found'
+    } */
     ebookController.getSingleEbook
 );
 
@@ -31,6 +59,7 @@ router.post(
     "/create-ebook",
     // #swagger.tags = ['Ebooks']
     // #swagger.summary = 'Create a new ebook (Admin only)'
+    // #swagger.description = 'Create a PDF or EPUB ebook with a cover image and resource file.'
     // #swagger.security = [{ "bearerAuth": [] }]
     /* #swagger.requestBody = {
       required: true,
@@ -54,6 +83,18 @@ router.post(
         }
       }
     } */
+    /* #swagger.responses[201] = {
+      description: 'Ebook created successfully'
+    } */
+    /* #swagger.responses[400] = {
+      description: 'Invalid payload or missing files'
+    } */
+    /* #swagger.responses[401] = {
+      description: 'Unauthorized'
+    } */
+    /* #swagger.responses[403] = {
+      description: 'Forbidden'
+    } */
     auth(USER_ROLE.ADMIN),
     upload.fields([
         { name: "coverImage", maxCount: 1 },
@@ -68,7 +109,14 @@ router.patch(
     "/:ebookId",
     // #swagger.tags = ['Ebooks']
     // #swagger.summary = 'Update an ebook (Admin only)'
+    // #swagger.description = 'Update ebook metadata and optionally replace the cover image or ebook file.'
     // #swagger.security = [{ "bearerAuth": [] }]
+    /* #swagger.parameters['ebookId'] = {
+      in: 'path',
+      required: true,
+      type: 'string',
+      description: 'Ebook database ObjectId'
+    } */
     /* #swagger.requestBody = {
       required: true,
       content: {
@@ -90,6 +138,21 @@ router.patch(
         }
       }
     } */
+    /* #swagger.responses[200] = {
+      description: 'Ebook updated successfully'
+    } */
+    /* #swagger.responses[400] = {
+      description: 'Invalid payload'
+    } */
+    /* #swagger.responses[401] = {
+      description: 'Unauthorized'
+    } */
+    /* #swagger.responses[403] = {
+      description: 'Forbidden'
+    } */
+    /* #swagger.responses[404] = {
+      description: 'Ebook item not found'
+    } */
     auth(USER_ROLE.ADMIN),
     upload.fields([
         { name: "coverImage", maxCount: 1 },
@@ -104,7 +167,26 @@ router.delete(
     "/:ebookId",
     // #swagger.tags = ['Ebooks']
     // #swagger.summary = 'Delete an ebook (Admin only)'
+    // #swagger.description = 'Delete an ebook record and queue cleanup of its Cloudinary assets.'
     // #swagger.security = [{ "bearerAuth": [] }]
+    /* #swagger.parameters['ebookId'] = {
+      in: 'path',
+      required: true,
+      type: 'string',
+      description: 'Ebook database ObjectId'
+    } */
+    /* #swagger.responses[200] = {
+      description: 'Ebook deleted successfully'
+    } */
+    /* #swagger.responses[401] = {
+      description: 'Unauthorized'
+    } */
+    /* #swagger.responses[403] = {
+      description: 'Forbidden'
+    } */
+    /* #swagger.responses[404] = {
+      description: 'Ebook item not found'
+    } */
     auth(USER_ROLE.ADMIN),
     ebookController.deleteEbook
 );
@@ -114,7 +196,23 @@ router.patch(
     "/:ebookId/download",
     // #swagger.tags = ['Ebooks']
     // #swagger.summary = 'Track ebook download (Authenticated users)'
+    // #swagger.description = 'Increment the ebook download counter.'
     // #swagger.security = [{ "bearerAuth": [] }]
+    /* #swagger.parameters['ebookId'] = {
+      in: 'path',
+      required: true,
+      type: 'string',
+      description: 'Ebook database ObjectId'
+    } */
+    /* #swagger.responses[200] = {
+      description: 'Download metric incremented successfully'
+    } */
+    /* #swagger.responses[401] = {
+      description: 'Unauthorized'
+    } */
+    /* #swagger.responses[404] = {
+      description: 'Ebook item not found'
+    } */
     auth(USER_ROLE.USER, USER_ROLE.ADMIN),
     ebookController.trackDownload
 );

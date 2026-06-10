@@ -73,6 +73,10 @@
       "description": "Admin analytics & management"
     },
     {
+      "name": "Ebook Categories",
+      "description": "E-book category management"
+    },
+    {
       "name": "Ebooks",
       "description": "E-book management & downloads"
     }
@@ -2588,27 +2592,89 @@
     },
     "/api/v1/ecategory/get-all": {
       "get": {
-        "description": "",
+        "tags": [
+          "Ebook Categories"
+        ],
+        "summary": "Get all ebook categories",
+        "description": "Retrieve all ebook categories sorted by name.",
         "responses": {
-          "default": {
-            "description": ""
+          "200": {
+            "description": "Categories retrieved successfully"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/v1/ecategory/create-ecategory": {
       "post": {
-        "description": "",
+        "tags": [
+          "Ebook Categories"
+        ],
+        "summary": "Create an ebook category (Admin only)",
+        "description": "Create a category used to organize ebooks.",
         "responses": {
-          "default": {
-            "description": ""
+          "201": {
+            "description": "Category created successfully"
+          },
+          "400": {
+            "description": "Invalid payload"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Category name or slug already exists"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "slug"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Programming"
+                  },
+                  "slug": {
+                    "type": "string",
+                    "example": "programming"
+                  },
+                  "description": {
+                    "type": "string",
+                    "example": "Technical ebooks and programming guides"
+                  },
+                  "isActive": {
+                    "type": "boolean",
+                    "example": true
+                  }
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/v1/ecategory/update/{EcatId}": {
       "patch": {
-        "description": "",
+        "tags": [
+          "Ebook Categories"
+        ],
+        "summary": "Update an ebook category (Admin only)",
+        "description": "Update ebook category metadata by category ID.",
         "parameters": [
           {
             "name": "EcatId",
@@ -2616,19 +2682,69 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Ebook category database ObjectId"
           }
         ],
         "responses": {
-          "default": {
-            "description": ""
+          "200": {
+            "description": "Category updated successfully"
+          },
+          "400": {
+            "description": "Invalid payload"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Category not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Updated Programming"
+                  },
+                  "slug": {
+                    "type": "string",
+                    "example": "updated-programming"
+                  },
+                  "description": {
+                    "type": "string",
+                    "example": "Updated category description"
+                  },
+                  "isActive": {
+                    "type": "boolean",
+                    "example": true
+                  }
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/v1/ecategory/delete/{EcatId}": {
       "delete": {
-        "description": "",
+        "tags": [
+          "Ebook Categories"
+        ],
+        "summary": "Delete an ebook category (Admin only)",
+        "description": "Delete an ebook category by category ID.",
         "parameters": [
           {
             "name": "EcatId",
@@ -2636,14 +2752,29 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Ebook category database ObjectId"
           }
         ],
         "responses": {
-          "default": {
-            "description": ""
+          "200": {
+            "description": "Category deleted successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Category not found"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/v1/ebook/get-all": {
@@ -2651,11 +2782,33 @@
         "tags": [
           "Ebooks"
         ],
-        "summary": "Get all ebooks (public)",
-        "description": "",
+        "summary": "Get all ebooks",
+        "description": "Retrieve all ebooks, optionally filtered by ebook category or format.",
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "description": "Ebook category ObjectId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "formatType",
+            "in": "query",
+            "enum": [
+              "PDF",
+              "EPUB"
+            ],
+            "description": "Filter ebooks by document format",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
-          "default": {
-            "description": ""
+          "200": {
+            "description": "Ebooks retrieved successfully"
           }
         },
         "security": []
@@ -2667,7 +2820,7 @@
           "Ebooks"
         ],
         "summary": "Get a single ebook by ID (public)",
-        "description": "",
+        "description": "Retrieve one ebook with populated category details.",
         "parameters": [
           {
             "name": "ebookId",
@@ -2675,12 +2828,16 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Ebook database ObjectId"
           }
         ],
         "responses": {
-          "default": {
-            "description": ""
+          "200": {
+            "description": "Ebook retrieved successfully"
+          },
+          "404": {
+            "description": "Ebook item not found"
           }
         },
         "security": []
@@ -2690,7 +2847,7 @@
           "Ebooks"
         ],
         "summary": "Update an ebook (Admin only)",
-        "description": "",
+        "description": "Update ebook metadata and optionally replace the cover image or ebook file.",
         "parameters": [
           {
             "name": "ebookId",
@@ -2698,12 +2855,25 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Ebook database ObjectId"
           }
         ],
         "responses": {
-          "default": {
-            "description": ""
+          "200": {
+            "description": "Ebook updated successfully"
+          },
+          "400": {
+            "description": "Invalid payload"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Ebook item not found"
           }
         },
         "security": [
@@ -2766,7 +2936,7 @@
           "Ebooks"
         ],
         "summary": "Delete an ebook (Admin only)",
-        "description": "",
+        "description": "Delete an ebook record and queue cleanup of its Cloudinary assets.",
         "parameters": [
           {
             "name": "ebookId",
@@ -2774,12 +2944,22 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Ebook database ObjectId"
           }
         ],
         "responses": {
-          "default": {
-            "description": ""
+          "200": {
+            "description": "Ebook deleted successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Ebook item not found"
           }
         },
         "security": [
@@ -2795,10 +2975,19 @@
           "Ebooks"
         ],
         "summary": "Create a new ebook (Admin only)",
-        "description": "",
+        "description": "Create a PDF or EPUB ebook with a cover image and resource file.",
         "responses": {
-          "default": {
-            "description": ""
+          "201": {
+            "description": "Ebook created successfully"
+          },
+          "400": {
+            "description": "Invalid payload or missing files"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
           }
         },
         "security": [
@@ -2880,7 +3069,7 @@
           "Ebooks"
         ],
         "summary": "Track ebook download (Authenticated users)",
-        "description": "",
+        "description": "Increment the ebook download counter.",
         "parameters": [
           {
             "name": "ebookId",
@@ -2888,12 +3077,19 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Ebook database ObjectId"
           }
         ],
         "responses": {
-          "default": {
-            "description": ""
+          "200": {
+            "description": "Download metric incremented successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Ebook item not found"
           }
         },
         "security": [
