@@ -4,42 +4,71 @@ import { deleteFromCloudinary, uploadToCloudinary } from "../../utils/cloudinary
 import { paginationHelper } from "../../utils/pafinationHelper";
 import { IBook } from "./book.interface";
 import Book from "./book.model";
-import config from "../../config";
 import { Order } from "../order/order.model";
 import { transformBookResponse } from "./book.utils";
+import BookCategory from "../bookCategory/bookCategory.model";
+import logger from "../../logger";
+
+type UploadedAsset = {
+  public_id: string;
+  resource_type: "image" | "video" | "raw";
+};
+
+const cleanupUploadedAssets = async (assets: UploadedAsset[]) => {
+  await Promise.allSettled(
+    assets.map((asset) =>
+      deleteFromCloudinary(asset.public_id, asset.resource_type).catch((error) => {
+        logger.error(
+          { error, publicId: asset.public_id },
+          "Failed to clean uploaded Cloudinary asset after rollback"
+        );
+      })
+    )
+  );
+};
 
 //create a new book
 const createBook = async (req: any) => {
   const payload: IBook = req.body;
   const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-  const result = await Book.create(payload);
-  if (!result) throw new AppError("Failed to create book", 400);
+  const uploadedAssets: UploadedAsset[] = [];
 
-  //if image is provided, upload it to cloudinary
-  if (files?.image?.[0]) {
-    const imageAsset = await uploadToCloudinary(files.image[0].path, "books");
-    if (!imageAsset) throw new AppError("Failed to upload image", 400);
-
-    result.image = {
-      public_id: imageAsset.public_id,
-      secure_url: imageAsset.secure_url,
-    };
+  if (!files?.audio?.[0]) {
+    throw new AppError("Audio file is required", 400);
   }
 
-  //if audio is provided, upload it to cloudinary
-  if (files?.audio?.[0]) {
-    const audioAsset = await uploadToCloudinary(files.audio[0].path, "books");
-    if (!audioAsset) throw new AppError("Failed to upload audio", 400);
+  const genreExists = await BookCategory.exists({ _id: payload.genre });
+  if (!genreExists) {
+    throw new AppError("This genre does not exist", 400);
+  }
 
-    result.audio = {
+  try {
+    if (files?.image?.[0]) {
+      const imageAsset = await uploadToCloudinary(files.image[0].path, "books");
+      uploadedAssets.push(imageAsset);
+
+      payload.image = {
+        public_id: imageAsset.public_id,
+        secure_url: imageAsset.secure_url,
+      };
+    }
+
+    const audioAsset = await uploadToCloudinary(files.audio[0].path, "books");
+    uploadedAssets.push(audioAsset);
+
+    payload.audio = {
       public_id: audioAsset.public_id,
       secure_url: audioAsset.secure_url,
     };
+
+    const result = await Book.create(payload);
+    if (!result) throw new AppError("Failed to create book", 400);
+
+    return result;
+  } catch (error) {
+    await cleanupUploadedAssets(uploadedAssets);
+    throw error;
   }
-
-  await result.save();
-
-  return result;
 };
 
 //get all books
@@ -228,85 +257,91 @@ const getBooksByCategory = async (req: any) => {
 const updateBook = async (req: any) => {
   const { bookId: id } = req.params;
   if (!mongoose.isValidObjectId(id)) throw new AppError("Invalid book id", 400);
-  const payload: IBook = req.body;
+  const payload: Partial<IBook> = req.body;
 
   const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+  const existingBook = await Book.findById(id);
+  if (!existingBook) throw new AppError("Book not found", 404);
 
-  const result = await Book.findByIdAndUpdate(id, payload, { new: true });
-  if (!result) throw new AppError("Book not found", 404);
-
-
-  // Handle image update and audio update
-  if (files?.image?.[0]) {
-    // Delete old image from Cloudinary if exists
-    if (result.image?.public_id) {
-      await deleteFromCloudinary(result.image.public_id, "image");
+  if (payload.genre) {
+    const genreExists = await BookCategory.exists({ _id: payload.genre });
+    if (!genreExists) {
+      throw new AppError("This genre does not exist", 400);
     }
-
-    const imageAsset = await uploadToCloudinary(files.image[0].path, "books");
-    if (!imageAsset) throw new AppError("Failed to upload new image", 400);
-
-    result.image = {
-      public_id: imageAsset.public_id,
-      secure_url: imageAsset.secure_url,
-    };
   }
 
-  if (files?.audio?.[0]) {
-    // Delete old audio from Cloudinary if exists
-    if (result.audio?.public_id) {
-      await deleteFromCloudinary(result.audio.public_id, "video");
+  const uploadedAssets: UploadedAsset[] = [];
+  const replacedAssets: UploadedAsset[] = [];
+
+  try {
+    if (files?.image?.[0]) {
+      const imageAsset = await uploadToCloudinary(files.image[0].path, "books");
+      uploadedAssets.push(imageAsset);
+
+      payload.image = {
+        public_id: imageAsset.public_id,
+        secure_url: imageAsset.secure_url,
+      };
+
+      if (existingBook.image?.public_id) {
+        replacedAssets.push({
+          public_id: existingBook.image.public_id,
+          resource_type: "image",
+        });
+      }
     }
 
-    const audioAsset = await uploadToCloudinary(files.audio[0].path, "books");
-    if (!audioAsset) throw new AppError("Failed to upload new audio", 400);
+    if (files?.audio?.[0]) {
+      const audioAsset = await uploadToCloudinary(files.audio[0].path, "books");
+      uploadedAssets.push(audioAsset);
 
-    result.audio = {
-      public_id: audioAsset.public_id,
-      secure_url: audioAsset.secure_url,
-    };
+      payload.audio = {
+        public_id: audioAsset.public_id,
+        secure_url: audioAsset.secure_url,
+      };
+
+      if (existingBook.audio?.public_id) {
+        replacedAssets.push({
+          public_id: existingBook.audio.public_id,
+          resource_type: "video",
+        });
+      }
+    }
+
+    const result = await Book.findByIdAndUpdate(id, payload, {
+      new: true,
+      runValidators: true,
+    });
+    if (!result) throw new AppError("Book not found", 404);
+
+    cleanupUploadedAssets(replacedAssets);
+
+    return result;
+  } catch (error) {
+    await cleanupUploadedAssets(uploadedAssets);
+    throw error;
   }
-
-  await result.save();
-
-  return result;
 };
 
 //delete a book by id
 const deleteBook = async (req: any) => {
   const { bookId: id } = req.params;
+  if (!mongoose.isValidObjectId(id)) throw new AppError("Invalid book id", 400);
 
-  const session = await mongoose.startSession();
+  const result = await Book.findByIdAndDelete(id);
+  if (!result) throw new AppError("Book not found", 404);
 
-  try {
-    session.startTransaction();
-
-    const book = await Book.findById(id).session(session);
-    if (!book) throw new AppError("Book not found", 404);
-
-    const result = await Book.findByIdAndDelete(id).session(session);
-
-    await session.commitTransaction();
-    session.endSession();
-
-    // Run external cleanup AFTER DB success
-    if (book.image?.public_id) {
-      const result = await deleteFromCloudinary(book.image.public_id, "image");
-      if (config.nodeEnv == "development" && result) console.log("Image deleted from Cloudinary in deleteBook", book.image.public_id);
-
-    }
-
-    if (book.audio?.public_id) {
-      const result = await deleteFromCloudinary(book.audio.public_id, "video");
-      if (config.nodeEnv == "development" && result) console.log("Audio deleted from Cloudinary in deleteBook", book.audio.public_id);
-    }
-
-    return result?._id;
-  } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
-    throw error;
+  const assetsToDelete: UploadedAsset[] = [];
+  if (result.image?.public_id) {
+    assetsToDelete.push({ public_id: result.image.public_id, resource_type: "image" });
   }
+  if (result.audio?.public_id) {
+    assetsToDelete.push({ public_id: result.audio.public_id, resource_type: "video" });
+  }
+
+  cleanupUploadedAssets(assetsToDelete);
+
+  return result._id;
 };
 const bookService = {
   createBook,

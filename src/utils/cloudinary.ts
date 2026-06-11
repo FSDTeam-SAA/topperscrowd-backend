@@ -36,6 +36,7 @@ export const uploadToCloudinary = async (filePath: string, folder: string) => {
     return {
       public_id: result.public_id,
       secure_url: result.secure_url,
+      resource_type: result.resource_type as "image" | "video" | "raw",
     };
   } catch {
     await fs.promises.unlink(filePath).catch(() => undefined);
@@ -48,12 +49,25 @@ export const deleteFromCloudinary = async (
   publicId: string,
   resourceType: "image" | "video" | "raw"
 ) => {
-  try {
-    await cloudinary.uploader.destroy(publicId, {
-      resource_type: resourceType,
-    });
-    return true;
-  } catch (error) {
-    throw new Error("Failed to delete file from Cloudinary");
+  const resourceTypes: ("image" | "video" | "raw")[] = [
+    resourceType,
+    ...(["image", "video", "raw"] as const).filter((type) => type !== resourceType),
+  ];
+
+  for (const type of resourceTypes) {
+    try {
+      const result = await cloudinary.uploader.destroy(publicId, {
+        resource_type: type,
+      });
+
+      if (result?.result === "ok") {
+        return true;
+      }
+    } catch {
+      // Try the next resource type. Cloudinary may classify PDFs/audio differently
+      // depending on upload options and account settings.
+    }
   }
+
+  throw new Error("Failed to delete file from Cloudinary");
 };

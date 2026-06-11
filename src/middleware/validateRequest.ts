@@ -27,8 +27,7 @@ export const validateRequest = (schema: ZodSchema): RequestHandler => {
         );
       }
 
-      // Validate body ONLY if it exists
-      if (hasBody) {
+      if (hasBody || hasFile) {
         await schema.parseAsync({
           body: req.body,
           query: req.query,

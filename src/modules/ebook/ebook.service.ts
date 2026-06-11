@@ -5,21 +5,57 @@ import { Ebook } from "./ebook.model";
 import { Category } from "../ecategory/ecategory.model";
 
 /**
- * Create a new Ebook/Epub entry after verifying the category exists
+ * Validate a new Ebook/Epub entry before expensive file uploads
  */
-const createEbookIntoDB = async (payload: IEbook): Promise<IEbook> => {
-    // 1. Verify that the target category exists in DB
+const validateEbookCreate = async (payload: Partial<IEbook>) => {
     const isCategoryExist = await Category.findById(payload.category);
     if (!isCategoryExist) {
         throw new AppError("Referenced category does not exist", StatusCodes.NOT_FOUND);
     }
 
-    // 2. Check if slug is unique
     const isSlugExist = await Ebook.findOne({ slug: payload.slug });
     if (isSlugExist) {
         throw new AppError("An ebook with this slug already exists", StatusCodes.CONFLICT);
     }
+};
 
+/**
+ * Validate an Ebook update before expensive file uploads
+ */
+const validateEbookUpdate = async (
+    ebookId: string,
+    payload: Partial<IEbook>
+): Promise<IEbook> => {
+    const existingEbook = await Ebook.findById(ebookId);
+    if (!existingEbook) {
+        throw new AppError("Ebook item not found", StatusCodes.NOT_FOUND);
+    }
+
+    if (payload.category) {
+        const isCategoryExist = await Category.findById(payload.category);
+        if (!isCategoryExist) {
+            throw new AppError("Referenced category does not exist", StatusCodes.NOT_FOUND);
+        }
+    }
+
+    if (payload.slug) {
+        const isSlugExist = await Ebook.findOne({
+            slug: payload.slug,
+            _id: { $ne: ebookId },
+        });
+        if (isSlugExist) {
+            throw new AppError("An ebook with this slug already exists", StatusCodes.CONFLICT);
+        }
+    }
+
+    return existingEbook;
+};
+
+/**
+ * Create a new Ebook/Epub entry after verifying the category exists
+ */
+const createEbookIntoDB = async (payload: IEbook): Promise<IEbook> => {
+    await validateEbookCreate(payload);
     const result = await Ebook.create(payload);
     return result;
 };
@@ -61,18 +97,7 @@ const getSingleEbookFromDB = async (ebookId: string): Promise<IEbook> => {
  * Update Ebook configurations
  */
 const updateEbookInDB = async (ebookId: string, payload: Partial<IEbook>): Promise<IEbook | null> => {
-    const isEbookExist = await Ebook.findById(ebookId);
-    if (!isEbookExist) {
-        throw new AppError("Ebook item not found", StatusCodes.NOT_FOUND);
-    }
-
-    // If category is being modified, confirm target exists
-    if (payload.category) {
-        const isCategoryExist = await Category.findById(payload.category);
-        if (!isCategoryExist) {
-            throw new AppError("Referenced category does not exist", StatusCodes.NOT_FOUND);
-        }
-    }
+    await validateEbookUpdate(ebookId, payload);
 
     const result = await Ebook.findByIdAndUpdate(ebookId, payload, {
         new: true,
@@ -111,6 +136,8 @@ const trackEbookDownloadInDB = async (ebookId: string): Promise<IEbook | null> =
 };
 
 export const ebookService = {
+    validateEbookCreate,
+    validateEbookUpdate,
     createEbookIntoDB,
     getAllEbooksFromDB,
     getSingleEbookFromDB,
