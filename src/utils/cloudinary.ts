@@ -1,10 +1,17 @@
 import { UploadApiResponse, v2 as cloudinary } from "cloudinary";
 import fs from "fs";
+import { Readable } from "stream";
 import config from "../config";
 import AppError from "../errors/AppError";
 
 const LARGE_UPLOAD_THRESHOLD_BYTES = 100 * 1024 * 1024;
 const CLOUDINARY_CHUNK_SIZE_BYTES = 20 * 1024 * 1024;
+
+export type CloudinaryUploadedAsset = {
+  public_id: string;
+  secure_url: string;
+  resource_type: "image" | "video" | "raw";
+};
 
 // configure Cloudinary
 cloudinary.config({
@@ -42,6 +49,69 @@ export const uploadToCloudinary = async (filePath: string, folder: string) => {
     await fs.promises.unlink(filePath).catch(() => undefined);
     throw new AppError("Failed to upload file to Cloudinary", 400);
   }
+};
+
+const normalizeUploadResult = (
+  result: UploadApiResponse,
+): CloudinaryUploadedAsset => ({
+  public_id: result.public_id,
+  secure_url: result.secure_url,
+  resource_type: result.resource_type as "image" | "video" | "raw",
+});
+
+export const uploadImageStreamToCloudinary = (
+  input: Readable,
+  folder: string,
+): Promise<CloudinaryUploadedAsset> => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        resource_type: "image",
+      },
+      (error, result) => {
+        if (error || !result) {
+          reject(new AppError("Failed to upload image to Cloudinary", 400));
+          return;
+        }
+
+        resolve(normalizeUploadResult(result));
+      },
+    );
+
+    input.on("error", reject);
+    uploadStream.on("error", reject);
+    input.pipe(uploadStream);
+  });
+};
+
+export const uploadLargeMediaStreamToCloudinary = (
+  input: Readable,
+  folder: string,
+): Promise<CloudinaryUploadedAsset> => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_chunked_stream(
+      {
+        folder,
+        resource_type: "video",
+        chunk_size: CLOUDINARY_CHUNK_SIZE_BYTES,
+      },
+      (error, result) => {
+        if (error) {
+          reject(new AppError("Failed to upload media to Cloudinary", 400));
+          return;
+        }
+
+        if (result?.done === true) {
+          resolve(normalizeUploadResult(result as UploadApiResponse));
+        }
+      },
+    );
+
+    input.on("error", reject);
+    uploadStream.on("error", reject);
+    input.pipe(uploadStream);
+  });
 };
 
 // delete file
