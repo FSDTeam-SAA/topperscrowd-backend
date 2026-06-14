@@ -1,13 +1,14 @@
 import { Types } from 'mongoose';
 
+export type TOrderProductType = 'book' | 'ebook';
+
 export interface IOrderItem {
-  book: Types.ObjectId;
+  productType: TOrderProductType;
+  book?: Types.ObjectId;
+  ebook?: Types.ObjectId;
   price: number; 
   quantity: number;
 }
-
-
-// Sob kicu thik ache broooooooooo
 
 export interface IOrder {
   userId: Types.ObjectId;

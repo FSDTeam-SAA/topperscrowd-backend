@@ -45,9 +45,22 @@ const getMyBooks = catchAsync(async (req, res) => {
   });
 });
 
+const getMyEbooks = catchAsync(async (req, res) => {
+  const { page, limit } = req.query;
+  const { data, meta } = await libraryService.getMyEbooks(req.user.id, req.user, page as string, limit as string);
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "My ebooks retrieved successfully",
+    data,
+    meta,
+  });
+});
+
 export const libraryController = {
   getLibraryStats,
   getContinueListening,
   getRecentPurchases,
   getMyBooks,
+  getMyEbooks,
 };

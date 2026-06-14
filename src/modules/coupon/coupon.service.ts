@@ -122,12 +122,12 @@ const getAllCouponsFromDB = async (query: Record<string, any>) => {
 
 const applyCouponAndCalculate = async (
   userId: string,
-  payload: { couponCode: string; bookId?: string; quantity?: number; items?: { bookId: string; quantity: number }[] }
+  payload: { couponCode: string; bookId?: string; ebookId?: string; quantity?: number; items?: { bookId?: string; ebookId?: string; quantity: number }[] }
 ) => {
-  const { couponCode, bookId, quantity = 1, items } = payload;
+  const { couponCode, bookId, ebookId, quantity = 1, items } = payload;
 
   // 1. Snapshot Prices & Cart Integrity using exported buildCheckoutItems from OrderService
-  const { totalAmount } = await buildCheckoutItems(userId, bookId, quantity, items);
+  const { totalAmount } = await buildCheckoutItems(userId, { bookId, ebookId, quantity, items });
 
   // 2. Validate and calculate discount using exported applyCouponDiscount from OrderService
   const { appliedCouponId, finalTotal, discountAmount } = await applyCouponDiscount(userId, totalAmount, couponCode);

@@ -7,11 +7,13 @@ import { CartService } from './cart.service';
 const addToCart = catchAsync(async (req: Request, res: Response) => {
   // Assume user ID comes from your Auth Middleware (JWT)
   const userId = req.user.id;
-  const { bookId, quantity, items } = req.body;
+  const { bookId, ebookId, quantity, items } = req.body;
 
   let itemsToAdd = [];
   if (items && items.length > 0) {
     itemsToAdd = items;
+  } else if (ebookId) {
+    itemsToAdd = [{ ebookId, quantity: quantity || 1 }];
   } else if (bookId) {
     itemsToAdd = [{ bookId, quantity: quantity || 1 }];
   }
@@ -40,8 +42,7 @@ const getMyCart = catchAsync(async (req: Request, res: Response) => {
 
 const updateQuantity = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user.id;
-  const { bookId, quantity } = req.body;
-  const result = await CartService.updateCartItemQuantity(userId, bookId, quantity);
+  const result = await CartService.updateCartItemQuantity(userId, req.body);
 
   sendResponse(res, {
     statusCode: httpStatus.OK,
@@ -66,9 +67,14 @@ const clearCart = catchAsync(async (req: Request, res: Response) => {
 
 const removeItem = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user.id;
-  const { bookId } = req.params;
+  const { bookId, ebookId, productType, productId } = req.params;
 
-  const result = await CartService.removeItemFromCartFromDB(userId, bookId as string);
+  const result = await CartService.removeItemFromCartFromDB(userId, {
+    bookId,
+    ebookId,
+    productType: productType as any,
+    productId,
+  });
 
   sendResponse(res, {
     statusCode: httpStatus.OK,

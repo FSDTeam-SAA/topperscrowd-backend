@@ -3,7 +3,9 @@ import { IOrder, IOrderItem } from './order.interface';
 
 const orderItemSchema = new Schema<IOrderItem>(
   {
-    book: { type: Schema.Types.ObjectId, ref: 'Book', required: true },
+    productType: { type: String, enum: ['book', 'ebook'], required: true, default: 'book' },
+    book: { type: Schema.Types.ObjectId, ref: 'Book' },
+    ebook: { type: Schema.Types.ObjectId, ref: 'Ebook' },
     price: { type: Number, required: true },
     quantity: { type: Number, required: true, min: 1, default: 1 },
   },
@@ -32,6 +34,7 @@ const orderSchema = new Schema<IOrder>(
 // Indexes mapping to the implementation plan for efficient queries
 // 1. Duplicate check lookups
 orderSchema.index({ userId: 1, 'items.book': 1, paymentStatus: 1 });
+orderSchema.index({ userId: 1, 'items.ebook': 1, paymentStatus: 1 });
 // 2. Cron job lookup for stale pending orders
 orderSchema.index({ paymentStatus: 1, createdAt: 1 });
 

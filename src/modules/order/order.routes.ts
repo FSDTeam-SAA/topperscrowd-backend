@@ -19,6 +19,7 @@ router.post(
   '/checkout',
   // #swagger.tags = ['Orders']
   // #swagger.summary = 'Create a PayPal checkout order'
+  // #swagger.description = 'Creates a checkout from bookId, ebookId, explicit mixed items, or the current cart when no item fields are sent. Supports coupons for audiobooks and ebooks.'
   // #swagger.security = [{ "bearerAuth": [] }]
   /* #swagger.requestBody = {
     required: true,
@@ -28,6 +29,7 @@ router.post(
           type: "object",
           properties: {
             bookId: { type: "string", example: "64f1a2b3c4d5e6f7a8b9c0d1" },
+            ebookId: { type: "string", example: "64f1a2b3c4d5e6f7a8b9c0d2" },
             quantity: { type: "integer", example: 1 },
             items: {
               type: "array",
@@ -35,6 +37,7 @@ router.post(
                 type: "object",
                 properties: {
                   bookId: { type: "string" },
+                  ebookId: { type: "string" },
                   quantity: { type: "integer", example: 1 }
                 }
               }

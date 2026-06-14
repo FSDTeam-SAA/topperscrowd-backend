@@ -28,13 +28,21 @@ const applyCouponSchema = z.object({
       required_error: "Coupon code is required",
     }).min(1, { message: "Coupon code cannot be empty" }),
     bookId: z.string().optional(),
+    ebookId: z.string().optional(),
     quantity: z.number().int().min(1).optional(),
     items: z.array(
       z.object({
-        bookId: z.string(),
+        bookId: z.string().optional(),
+        ebookId: z.string().optional(),
         quantity: z.number().int().min(1).default(1),
+      }).refine(data => data.bookId || data.ebookId, {
+        message: "Each item must include either bookId or ebookId"
+      }).refine(data => !(data.bookId && data.ebookId), {
+        message: "Each item can include only one of bookId or ebookId"
       })
     ).optional(),
+  }).refine(data => !(data.bookId && data.ebookId), {
+    message: "Provide only one of bookId or ebookId"
   }),
 });
 

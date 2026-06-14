@@ -10,7 +10,8 @@ const router = express.Router();
 router.post(
   '/add-to-cart',
   // #swagger.tags = ['Cart']
-  // #swagger.summary = 'Add item(s) to cart'
+  // #swagger.summary = 'Add audiobook or ebook item(s) to cart'
+  // #swagger.description = 'Supports legacy bookId payloads, ebookId payloads, and mixed items arrays. Re-adding the same item increases quantity.'
   // #swagger.security = [{ "bearerAuth": [] }]
   /* #swagger.requestBody = {
     required: true,
@@ -20,6 +21,7 @@ router.post(
           type: "object",
           properties: {
             bookId: { type: "string", example: "64f1a2b3c4d5e6f7a8b9c0d1" },
+            ebookId: { type: "string", example: "64f1a2b3c4d5e6f7a8b9c0d2" },
             quantity: { type: "integer", example: 1 },
             items: {
               type: "array",
@@ -27,6 +29,7 @@ router.post(
                 type: "object",
                 properties: {
                   bookId: { type: "string" },
+                  ebookId: { type: "string" },
                   quantity: { type: "integer", example: 1 }
                 }
               }
@@ -61,9 +64,12 @@ router.patch(
       "application/json": {
         schema: {
           type: "object",
-          required: ["bookId", "quantity"],
+          required: ["quantity"],
           properties: {
             bookId: { type: "string", example: "64f1a2b3c4d5e6f7a8b9c0d1" },
+            ebookId: { type: "string", example: "64f1a2b3c4d5e6f7a8b9c0d2" },
+            productType: { type: "string", enum: ["book", "ebook"], example: "ebook" },
+            productId: { type: "string", example: "64f1a2b3c4d5e6f7a8b9c0d2" },
             quantity: { type: "integer", example: 2 }
           }
         }
@@ -85,9 +91,31 @@ router.delete(
 );
 
 router.delete(
+  '/remove-item/:productType/:productId',
+  // #swagger.tags = ['Cart']
+  // #swagger.summary = 'Remove a book or ebook item from cart'
+  // #swagger.security = [{ "bearerAuth": [] }]
+  /* #swagger.parameters['productType'] = {
+    in: 'path',
+    required: true,
+    type: 'string',
+    enum: ['book', 'ebook'],
+    description: 'Product type to remove'
+  } */
+  /* #swagger.parameters['productId'] = {
+    in: 'path',
+    required: true,
+    type: 'string',
+    description: 'Book or ebook ObjectId'
+  } */
+  auth(USER_ROLE.USER),
+  CartController.removeItem
+);
+
+router.delete(
   '/remove-item/:bookId',
   // #swagger.tags = ['Cart']
-  // #swagger.summary = 'Remove a specific item from cart'
+  // #swagger.summary = 'Remove a specific audiobook item from cart (legacy)'
   // #swagger.security = [{ "bearerAuth": [] }]
   auth(USER_ROLE.USER),
   CartController.removeItem
