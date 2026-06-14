@@ -41,5 +41,15 @@ router.get(
   libraryController.getMyBooks
 );
 
+router.get(
+  "/my-ebooks",
+  // #swagger.tags = ['Library']
+  // #swagger.summary = 'Get all my purchased ebooks and epubs'
+  // #swagger.description = 'Returns purchased ebook/epub records with file URLs available for download.'
+  // #swagger.security = [{ "bearerAuth": [] }]
+  auth(USER_ROLE.USER, USER_ROLE.ADMIN),
+  libraryController.getMyEbooks
+);
+
 const libraryRouter = router;
 export default libraryRouter;

@@ -23,6 +23,9 @@ export interface IEbook {
   file: IEbookFile;
   formatType: EEbookFormat; // Differentiates PDF vs EPUB
   category: Types.ObjectId; // References Ecategory
+  price: number;
   isPremium: boolean;
+  status: "active" | "inactive";
+  saleCount: number;
   downloadCount: number;
 }

@@ -34,6 +34,7 @@ const createEbook = catchAsync(async (req: Request, res: Response) => {
 
   const baseEbookData = {
     ...req.body,
+    price: Number(req.body.price ?? 0),
     isPremium: req.body.isPremium === "true" || req.body.isPremium === true,
   };
   const uploadedAssets: UploadedAsset[] = [];
@@ -105,6 +106,9 @@ const updateEbook = catchAsync(async (req: Request, res: Response) => {
 
   if (req.body.isPremium !== undefined) {
     updatedData.isPremium = req.body.isPremium === "true" || req.body.isPremium === true;
+  }
+  if (req.body.price !== undefined) {
+    updatedData.price = Number(req.body.price);
   }
 
   const existingEbook = await ebookService.validateEbookUpdate(ebookId, updatedData);
@@ -188,7 +192,7 @@ const deleteEbook = catchAsync(async (req: Request, res: Response) => {
 
 const trackDownload = catchAsync(async (req: Request, res: Response) => {
   const { ebookId } = req.params;
-  const result = await ebookService.trackEbookDownloadInDB(ebookId);
+  const result = await ebookService.trackEbookDownloadInDB(ebookId, req.user);
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,

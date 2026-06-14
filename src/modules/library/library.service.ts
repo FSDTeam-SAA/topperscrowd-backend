@@ -1,9 +1,11 @@
 import { Order } from "../order/order.model";
 import ListenerProgress from "../listenerProgress/listenerProgress.model";
 import Book from "../book/book.model";
+import { Ebook } from "../ebook/ebook.model";
 import { Favorite } from "../favorite/favorite.model";
 import { paginationHelper } from "../../utils/pafinationHelper";
 import { transformBookResponse } from "../book/book.utils";
+import { transformEbookResponse } from "../ebook/ebook.service";
 import mongoose from "mongoose";
 
 const getLibraryStats = async (userId: string) => {
@@ -13,6 +15,8 @@ const getLibraryStats = async (userId: string) => {
   const [
     purchasedBooks,
     newPurchasedBooks,
+    purchasedEbooks,
+    newPurchasedEbooks,
     listeningTime,
     listeningTimeThisWeek,
     totalFavorites,
@@ -24,6 +28,12 @@ const getLibraryStats = async (userId: string) => {
       paymentStatus: 'paid',
       createdAt: { $gte: sevenDaysAgo }
     }).distinct('items.book'),
+    Order.find({ userId: new mongoose.Types.ObjectId(userId), paymentStatus: 'paid' }).distinct('items.ebook'),
+    Order.find({ 
+      userId: new mongoose.Types.ObjectId(userId), 
+      paymentStatus: 'paid',
+      createdAt: { $gte: sevenDaysAgo }
+    }).distinct('items.ebook'),
     ListenerProgress.aggregate([
       { $match: { user: new mongoose.Types.ObjectId(userId) } },
       { $group: { _id: null, total: { $sum: '$progress' } } }
@@ -45,6 +55,8 @@ const getLibraryStats = async (userId: string) => {
   return {
     totalAudiobooks: purchasedBooks.length,
     newAudiobooks: newPurchasedBooks.length,
+    totalEbooks: purchasedEbooks.filter(Boolean).length,
+    newEbooks: newPurchasedEbooks.filter(Boolean).length,
     totalListeningTime: listeningTime[0]?.total || 0,
     listeningTimeThisWeek: listeningTimeThisWeek[0]?.total || 0,
     favorites: totalFavorites,
@@ -136,11 +148,49 @@ const getMyBooks = async (userId: string, user: any, page: string, limit: string
   };
 };
 
+const getMyEbooks = async (userId: string, user: any, page: string, limit: string) => {
+  const { skip, limit: perPage, page: currentPage } = paginationHelper(page, limit);
+
+  const purchasedEbookIds = await Order.find({ 
+    userId: new mongoose.Types.ObjectId(userId), 
+    paymentStatus: 'paid' 
+  }).distinct('items.ebook');
+
+  const cleanPurchasedEbookIds = (purchasedEbookIds as any).filter(Boolean);
+
+  const [ebooks, total] = await Promise.all([
+    Ebook.find({ _id: { $in: cleanPurchasedEbookIds } })
+      .skip(skip)
+      .limit(perPage)
+      .sort({ createdAt: -1 })
+      .populate('category', 'name slug')
+      .lean(),
+    Ebook.countDocuments({ _id: { $in: cleanPurchasedEbookIds } })
+  ]);
+
+  const transformedEbooks = transformEbookResponse(
+    ebooks,
+    user,
+    cleanPurchasedEbookIds.map((id: any) => id.toString())
+  );
+
+  return {
+    data: transformedEbooks,
+    meta: {
+      total,
+      page: currentPage,
+      limit: perPage,
+      totalPage: Math.ceil(total / perPage),
+    },
+  };
+};
+
 const libraryService = {
   getLibraryStats,
   getContinueListening,
   getRecentPurchases,
   getMyBooks,
+  getMyEbooks,
 };
 
 export default libraryService;

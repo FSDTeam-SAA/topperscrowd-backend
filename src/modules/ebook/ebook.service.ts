@@ -1,8 +1,51 @@
+import { JwtPayload } from "jsonwebtoken";
 import { StatusCodes } from "http-status-codes";
 import AppError from "../../errors/AppError";
+import { USER_ROLE } from "../user/user.constant";
 import { IEbook } from "./ebook.interface";
 import { Ebook } from "./ebook.model";
 import { Category } from "../ecategory/ecategory.model";
+import { Order } from "../order/order.model";
+
+const getPurchasedEbookIds = async (userId?: string) => {
+    if (!userId) return [];
+    const purchased = await Order.find({
+        userId,
+        paymentStatus: "paid",
+    }).distinct("items.ebook");
+    return (purchased as any).filter(Boolean).map((id: any) => id.toString());
+};
+
+export const transformEbookResponse = (
+    ebook: any,
+    user: JwtPayload | { id?: string; role?: string } | null = null,
+    purchasedEbookIds: string[] = []
+) => {
+    const isAdmin = user?.role === USER_ROLE.ADMIN;
+
+    const transform = (item: any) => {
+        if (!item) return item;
+        const plainItem = typeof item.toObject === "function" ? item.toObject() : item;
+        const isPurchased = purchasedEbookIds.some(
+            (id) => id.toString() === plainItem._id.toString()
+        );
+        const shouldShowFile = !plainItem.isPremium || isAdmin || isPurchased;
+
+        plainItem.hasFile = !!plainItem.file?.url;
+
+        if (!shouldShowFile) {
+            delete plainItem.file;
+        }
+
+        return plainItem;
+    };
+
+    if (Array.isArray(ebook)) {
+        return ebook.map(transform);
+    }
+
+    return transform(ebook);
+};
 
 /**
  * Validate a new Ebook/Epub entry before expensive file uploads
@@ -63,7 +106,7 @@ const createEbookIntoDB = async (payload: IEbook): Promise<IEbook> => {
 /**
  * Get ebooks with flexible filtering via runtime query structures
  */
-const getAllEbooksFromDB = async (query: { category?: string; formatType?: string }) => {
+const getAllEbooksFromDB = async (query: { category?: string; formatType?: string; status?: string }) => {
     const filter: Record<string, any> = {};
 
     if (query.category) {
@@ -74,23 +117,27 @@ const getAllEbooksFromDB = async (query: { category?: string; formatType?: strin
         filter.formatType = query.formatType;
     }
 
-    // Fetch results and populate category fields seamlessly
+    if (query.status && query.status !== "all") {
+        filter.status = query.status;
+    }
+
     const result = await Ebook.find(filter)
         .populate("category", "name slug")
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .lean();
 
-    return result;
+    return transformEbookResponse(result);
 };
 
 /**
  * Get a single Ebook by ID
  */
 const getSingleEbookFromDB = async (ebookId: string): Promise<IEbook> => {
-    const result = await Ebook.findById(ebookId).populate("category", "name slug");
+    const result = await Ebook.findById(ebookId).populate("category", "name slug").lean();
     if (!result) {
         throw new AppError("Ebook item not found", StatusCodes.NOT_FOUND);
     }
-    return result;
+    return transformEbookResponse(result);
 };
 
 /**
@@ -121,18 +168,28 @@ const deleteEbookFromDB = async (ebookId: string): Promise<IEbook | null> => {
 };
 
 /**
- * Increment download metrics for a book safely
+ * Increment download metrics after confirming the requester may access the file.
  */
-const trackEbookDownloadInDB = async (ebookId: string): Promise<IEbook | null> => {
+const trackEbookDownloadInDB = async (ebookId: string, user: JwtPayload): Promise<IEbook | null> => {
+    const ebook = await Ebook.findById(ebookId);
+    if (!ebook) {
+        throw new AppError("Ebook item not found", StatusCodes.NOT_FOUND);
+    }
+
+    const purchasedEbookIds = await getPurchasedEbookIds(user.id);
+    const canDownload = !ebook.isPremium || user.role === USER_ROLE.ADMIN || purchasedEbookIds.includes(ebookId);
+
+    if (!canDownload) {
+        throw new AppError("You need to purchase this ebook before downloading it", StatusCodes.FORBIDDEN);
+    }
+
     const result = await Ebook.findByIdAndUpdate(
         ebookId,
         { $inc: { downloadCount: 1 } },
         { new: true }
-    );
-    if (!result) {
-        throw new AppError("Ebook item not found", StatusCodes.NOT_FOUND);
-    }
-    return result;
+    ).populate("category", "name slug");
+
+    return transformEbookResponse(result, user, purchasedEbookIds);
 };
 
 export const ebookService = {
@@ -144,4 +201,6 @@ export const ebookService = {
     updateEbookInDB,
     deleteEbookFromDB,
     trackEbookDownloadInDB,
+    getPurchasedEbookIds,
+    transformEbookResponse,
 };

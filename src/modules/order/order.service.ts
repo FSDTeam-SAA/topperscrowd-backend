@@ -1,12 +1,32 @@
+import axios from 'axios';
 import httpStatus from 'http-status';
+import mongoose from 'mongoose';
+import config from '../../config';
 import AppError from '../../errors/AppError';
-import { Order } from './order.model';
 import Book from '../book/book.model';
 import { Cart } from '../cart/cart.model';
+import { CartService } from '../cart/cart.service';
 import { Coupon } from '../coupon/coupon.model';
-import config from '../../config';
-import mongoose from 'mongoose';
-import axios from 'axios';
+import { Ebook } from '../ebook/ebook.model';
+import { IOrderItem, TOrderProductType } from './order.interface';
+import { Order } from './order.model';
+
+export type TCheckoutPayloadItem = {
+  bookId?: string;
+  ebookId?: string;
+  quantity?: number;
+};
+
+type TNormalizedCheckoutItem = {
+  productType: TOrderProductType;
+  productId: string;
+  quantity: number;
+};
+
+type TOwnershipCheck = {
+  bookIdsToCheck: string[];
+  ebookIdsToCheck: string[];
+};
 
 const generateAccessToken = async () => {
   const { clientId, clientSecret, mode } = config.paypal;
@@ -14,9 +34,9 @@ const generateAccessToken = async () => {
     throw new AppError('PayPal credentials are not configured properly', httpStatus.INTERNAL_SERVER_ERROR);
   }
   const baseURL = mode === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com';
-  
+
   const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-  
+
   try {
     const response = await axios.post(`${baseURL}/v1/oauth2/token`, 'grant_type=client_credentials', {
       headers: {
@@ -31,59 +51,165 @@ const generateAccessToken = async () => {
   }
 };
 
-export const buildCheckoutItems = async (userId: string, bookId?: string, quantity: number = 1, explicitItems?: { bookId: string; quantity: number }[]) => {
-  const itemsToCheckout: { book: mongoose.Types.ObjectId; price: number; quantity: number }[] = [];
-  let totalAmount = 0;
-  const bookIdsToCheck: string[] = [];
+const normalizeCheckoutItems = (items: TCheckoutPayloadItem[]): TNormalizedCheckoutItem[] => {
+  const aggregatedItems = new Map<string, TNormalizedCheckoutItem>();
 
-  if (explicitItems && explicitItems.length > 0) {
-    for (const item of explicitItems) {
-      const book = await Book.findById(item.bookId);
-      if (!book) throw new AppError(`Book with ID ${item.bookId} not found`, httpStatus.NOT_FOUND);
-      if (book.status !== 'active') throw new AppError(`Book '${book.title}' is currently unavailable`, httpStatus.BAD_REQUEST);
+  for (const item of items) {
+    if (item.bookId && item.ebookId) {
+      throw new AppError('Each checkout item can include only one of bookId or ebookId', httpStatus.BAD_REQUEST);
+    }
+
+    const quantity = item.quantity ?? 1;
+    const productType: TOrderProductType = item.ebookId ? 'ebook' : 'book';
+    const productId = item.ebookId || item.bookId;
+
+    if (!productId) {
+      throw new AppError('Each checkout item must include either bookId or ebookId', httpStatus.BAD_REQUEST);
+    }
+
+    const key = `${productType}:${productId}`;
+    const existing = aggregatedItems.get(key);
+    if (existing) {
+      existing.quantity += quantity;
+    } else {
+      aggregatedItems.set(key, { productType, productId, quantity });
+    }
+  }
+
+  return Array.from(aggregatedItems.values());
+};
+
+const getOrderItemProductType = (item: any): TOrderProductType => {
+  if (item.productType === 'ebook' || item.ebook) return 'ebook';
+  return 'book';
+};
+
+export const buildCheckoutItems = async (
+  userId: string,
+  payload: { bookId?: string; ebookId?: string; quantity?: number; items?: TCheckoutPayloadItem[] } = {}
+) => {
+  const itemsToCheckout: IOrderItem[] = [];
+  let totalAmount = 0;
+  const ownershipCheck: TOwnershipCheck = {
+    bookIdsToCheck: [],
+    ebookIdsToCheck: [],
+  };
+
+  if (payload.items && payload.items.length > 0) {
+    const normalizedItems = normalizeCheckoutItems(payload.items);
+
+    for (const item of normalizedItems) {
+      if (item.productType === 'ebook') {
+        const ebook = await Ebook.findById(item.productId);
+        if (!ebook) throw new AppError(`Ebook with ID ${item.productId} not found`, httpStatus.NOT_FOUND);
+        if (ebook.status !== 'active') throw new AppError(`Ebook '${ebook.title}' is currently unavailable`, httpStatus.BAD_REQUEST);
+
+        itemsToCheckout.push({
+          productType: 'ebook',
+          ebook: new mongoose.Types.ObjectId(item.productId),
+          price: ebook.price,
+          quantity: item.quantity,
+        });
+        totalAmount += ebook.price * item.quantity;
+        ownershipCheck.ebookIdsToCheck.push(item.productId);
+      } else {
+        const book = await Book.findById(item.productId);
+        if (!book) throw new AppError(`Book with ID ${item.productId} not found`, httpStatus.NOT_FOUND);
+        if (book.status !== 'active') throw new AppError(`Book '${book.title}' is currently unavailable`, httpStatus.BAD_REQUEST);
+
+        itemsToCheckout.push({
+          productType: 'book',
+          book: new mongoose.Types.ObjectId(item.productId),
+          price: book.price,
+          quantity: item.quantity,
+        });
+        totalAmount += book.price * item.quantity;
+        ownershipCheck.bookIdsToCheck.push(item.productId);
+      }
+    }
+  } else if (payload.bookId || payload.ebookId) {
+    if (payload.bookId && payload.ebookId) {
+      throw new AppError('Provide only one of bookId or ebookId', httpStatus.BAD_REQUEST);
+    }
+
+    const productType: TOrderProductType = payload.ebookId ? 'ebook' : 'book';
+    const productId = payload.ebookId || payload.bookId;
+    const quantity = payload.quantity ?? 1;
+
+    if (!productId) {
+      throw new AppError('Provide either bookId or ebookId', httpStatus.BAD_REQUEST);
+    }
+
+    if (productType === 'ebook') {
+      const ebook = await Ebook.findById(productId);
+      if (!ebook) throw new AppError('Ebook not found', httpStatus.NOT_FOUND);
+      if (ebook.status !== 'active') throw new AppError('This ebook is currently unavailable for purchase', httpStatus.BAD_REQUEST);
 
       itemsToCheckout.push({
-        book: new mongoose.Types.ObjectId(item.bookId),
-        price: book.price,
-        quantity: item.quantity,
+        productType: 'ebook',
+        ebook: new mongoose.Types.ObjectId(productId),
+        price: ebook.price,
+        quantity,
       });
-      totalAmount += book.price * item.quantity;
-      bookIdsToCheck.push(item.bookId);
-    }
-  } else if (bookId) {
-    const book = await Book.findById(bookId);
-    if (!book) throw new AppError('Book not found', httpStatus.NOT_FOUND);
-    if (book.status !== 'active') throw new AppError('This book is currently unavailable for purchase', httpStatus.BAD_REQUEST);
+      totalAmount = ebook.price * quantity;
+      ownershipCheck.ebookIdsToCheck.push(productId);
+    } else {
+      const book = await Book.findById(productId);
+      if (!book) throw new AppError('Book not found', httpStatus.NOT_FOUND);
+      if (book.status !== 'active') throw new AppError('This book is currently unavailable for purchase', httpStatus.BAD_REQUEST);
 
-    itemsToCheckout.push({
-      book: new mongoose.Types.ObjectId(bookId),
-      price: book.price,
-      quantity,
-    });
-    totalAmount = book.price * quantity;
-    bookIdsToCheck.push(bookId);
+      itemsToCheckout.push({
+        productType: 'book',
+        book: new mongoose.Types.ObjectId(productId),
+        price: book.price,
+        quantity,
+      });
+      totalAmount = book.price * quantity;
+      ownershipCheck.bookIdsToCheck.push(productId);
+    }
   } else {
-    const cart = await Cart.findOne({ user: userId }).populate('items.book');
+    const cart = await Cart.findOne({ user: userId });
     if (!cart || cart.items.length === 0) {
       throw new AppError('Cart is empty', httpStatus.BAD_REQUEST);
     }
 
-    for (const item of cart.items) {
-      const bookData = item.book as any; // populated book
-      if (!bookData || bookData.status !== 'active') {
-        throw new AppError(`'${bookData?.title || 'One or more items'}' is no longer available`, httpStatus.BAD_REQUEST);
+    const populatedCart = await CartService.populateCartProducts(cart);
+
+    for (const item of populatedCart.items) {
+      const productType = CartService.getCartItemProductType(item);
+      const productData = CartService.getCartItemProduct(item);
+
+      if (!productData || productData.status !== 'active') {
+        throw new AppError(`'${productData?.title || 'One or more items'}' is no longer available`, httpStatus.BAD_REQUEST);
       }
-      itemsToCheckout.push({
-        book: new mongoose.Types.ObjectId(String(bookData._id)),
-        price: bookData.price,
-        quantity: item.quantity,
-      });
-      totalAmount += bookData.price * item.quantity;
-      bookIdsToCheck.push(bookData._id.toString());
+
+      if (productType === 'ebook') {
+        itemsToCheckout.push({
+          productType: 'ebook',
+          ebook: new mongoose.Types.ObjectId(String(productData._id)),
+          price: productData.price,
+          quantity: item.quantity,
+        });
+        ownershipCheck.ebookIdsToCheck.push(productData._id.toString());
+      } else {
+        itemsToCheckout.push({
+          productType: 'book',
+          book: new mongoose.Types.ObjectId(String(productData._id)),
+          price: productData.price,
+          quantity: item.quantity,
+        });
+        ownershipCheck.bookIdsToCheck.push(productData._id.toString());
+      }
+
+      totalAmount += productData.price * item.quantity;
     }
   }
 
-  return { itemsToCheckout, totalAmount: Number(totalAmount.toFixed(2)), bookIdsToCheck };
+  return {
+    itemsToCheckout,
+    totalAmount: Number(totalAmount.toFixed(2)),
+    ...ownershipCheck,
+  };
 };
 
 export const applyCouponDiscount = async (userId: string, totalAmount: number, couponCode?: string) => {
@@ -107,7 +233,6 @@ export const applyCouponDiscount = async (userId: string, totalAmount: number, c
     discountAmount = coupon.discountAmount;
   }
 
-  // Cap discountAmount at the totalAmount, and round to 2 decimal places
   discountAmount = Math.min(discountAmount, totalAmount);
   discountAmount = Number(discountAmount.toFixed(2));
 
@@ -115,30 +240,45 @@ export const applyCouponDiscount = async (userId: string, totalAmount: number, c
   return { appliedCouponId: coupon._id, finalTotal, discountAmount };
 };
 
-const createPayPalOrder = async (
+const assertNotAlreadyPurchased = async (
   userId: string,
-  payload: { bookId?: string; quantity?: number; items?: { bookId: string; quantity: number }[]; couponCode?: string }
+  bookIdsToCheck: string[],
+  ebookIdsToCheck: string[]
 ) => {
-  const { bookId, quantity = 1, items, couponCode } = payload;
+  const duplicateConditions = [];
 
-  // 1. Snapshot Prices & Cart Integrity
-  const { itemsToCheckout, totalAmount, bookIdsToCheck } = await buildCheckoutItems(userId, bookId, quantity, items);
+  if (bookIdsToCheck.length) {
+    duplicateConditions.push({ 'items.book': { $in: bookIdsToCheck } });
+  }
 
-  // Apply Coupon
-  const { appliedCouponId, finalTotal } = await applyCouponDiscount(userId, totalAmount, couponCode);
+  if (ebookIdsToCheck.length) {
+    duplicateConditions.push({ 'items.ebook': { $in: ebookIdsToCheck } });
+  }
 
-  // 1a. Duplicate Ownership Check
+  if (!duplicateConditions.length) return;
+
   const existingOrder = await Order.findOne({
     userId,
-    'items.book': { $in: bookIdsToCheck },
     paymentStatus: 'paid',
+    $or: duplicateConditions,
   });
 
   if (existingOrder) {
-    throw new AppError('You have already purchased one or more of these books', httpStatus.BAD_REQUEST);
+    throw new AppError('You have already purchased one or more of these items', httpStatus.BAD_REQUEST);
   }
+};
 
-  // 2. Draft Phase (Persistent Intent)
+const createPayPalOrder = async (
+  userId: string,
+  payload: { bookId?: string; ebookId?: string; quantity?: number; items?: TCheckoutPayloadItem[]; couponCode?: string }
+) => {
+  const { couponCode, ...checkoutPayload } = payload;
+
+  const { itemsToCheckout, totalAmount, bookIdsToCheck, ebookIdsToCheck } = await buildCheckoutItems(userId, checkoutPayload);
+  const { appliedCouponId, finalTotal } = await applyCouponDiscount(userId, totalAmount, couponCode);
+
+  await assertNotAlreadyPurchased(userId, bookIdsToCheck, ebookIdsToCheck);
+
   const order = await Order.create({
     userId,
     items: itemsToCheckout,
@@ -147,7 +287,18 @@ const createPayPalOrder = async (
     appliedCoupon: appliedCouponId,
   });
 
-  // 3. PayPal Order Initiation
+  if (finalTotal === 0) {
+    await finalizeOrder(order, `FREE_ORDER_${order._id.toString()}`);
+    return {
+      checkoutUrl: null,
+      orderId: order._id,
+      paypalOrderId: null,
+      totalAmount: finalTotal,
+      paymentRequired: false,
+      message: 'Order completed without PayPal because the final total is 0',
+    };
+  }
+
   const { accessToken, baseURL } = await generateAccessToken();
   const paypalPayload = {
     intent: 'CAPTURE',
@@ -177,7 +328,6 @@ const createPayPalOrder = async (
       },
     });
 
-    // Update order with PayPal Order ID
     order.paypalOrderId = response.data.id;
     await order.save();
 
@@ -188,9 +338,9 @@ const createPayPalOrder = async (
       orderId: order._id,
       paypalOrderId: response.data.id,
       totalAmount: order.totalAmount,
+      paymentRequired: true,
     };
   } catch (error: any) {
-    // Clean up draft order if PayPal fails
     await Order.findByIdAndDelete(order._id);
     throw new AppError(`Failed to create PayPal order: ${error.response?.data?.message || error.message}`, httpStatus.INTERNAL_SERVER_ERROR);
   }
@@ -201,7 +351,6 @@ const verifyPayment = async (userId: string, paypalOrderId: string) => {
 
   let paypalOrderData;
   try {
-    // Retrieve the order to check status
     const getOrderResponse = await axios.get(`${baseURL}/v2/checkout/orders/${paypalOrderId}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -210,8 +359,8 @@ const verifyPayment = async (userId: string, paypalOrderId: string) => {
     throw new AppError('Failed to retrieve PayPal order', httpStatus.BAD_REQUEST);
   }
 
-  const orderId = paypalOrderData.purchase_units[0].reference_id;
-  
+  const orderId = paypalOrderData.purchase_units?.[0]?.reference_id;
+
   if (!orderId) {
     throw new AppError('Order ID not found in PayPal order', httpStatus.BAD_REQUEST);
   }
@@ -221,17 +370,23 @@ const verifyPayment = async (userId: string, paypalOrderId: string) => {
     throw new AppError('Order not found', httpStatus.NOT_FOUND);
   }
 
-  // Security Verification
   if (order.userId.toString() !== userId.toString()) {
     throw new AppError('Unauthorized verification attempt', httpStatus.UNAUTHORIZED);
   }
 
-  // 4a. Atomic Check (already paid)
+  if (order.paypalOrderId && order.paypalOrderId !== paypalOrderId) {
+    throw new AppError('PayPal order does not match this checkout', httpStatus.BAD_REQUEST);
+  }
+
   if (order.paymentStatus === 'paid') {
     return { status: 'success', message: 'Payment was already verified' };
   }
 
-  // 4b. Verify PayPal Status and Capture if needed
+  const paypalAmount = Number(paypalOrderData.purchase_units?.[0]?.amount?.value);
+  if (Number.isFinite(paypalAmount) && Number(paypalAmount.toFixed(2)) !== Number(order.totalAmount.toFixed(2))) {
+    throw new AppError('PayPal amount does not match local order total', httpStatus.BAD_REQUEST);
+  }
+
   if (paypalOrderData.status === 'APPROVED') {
     try {
       const captureResponse = await axios.post(`${baseURL}/v2/checkout/orders/${paypalOrderId}/capture`, {}, {
@@ -245,79 +400,86 @@ const verifyPayment = async (userId: string, paypalOrderId: string) => {
         const transactionId = captureResponse.data.purchase_units[0].payments.captures[0].id;
         await finalizeOrder(order, transactionId);
         return { status: 'success', message: 'Payment successful' };
-      } else {
-        throw new AppError('Payment capture failed', httpStatus.BAD_REQUEST);
       }
+
+      throw new AppError('Payment capture failed', httpStatus.BAD_REQUEST);
     } catch (error) {
-       throw new AppError('Failed to capture PayPal payment', httpStatus.INTERNAL_SERVER_ERROR);
+      throw new AppError('Failed to capture PayPal payment', httpStatus.INTERNAL_SERVER_ERROR);
     }
   } else if (paypalOrderData.status === 'COMPLETED') {
-    // Already captured
     const transactionId = paypalOrderData.purchase_units[0].payments.captures[0].id;
     await finalizeOrder(order, transactionId);
     return { status: 'success', message: 'Payment successful' };
-  } else {
-    throw new AppError('Payment not completed', httpStatus.BAD_REQUEST);
   }
+
+  throw new AppError('Payment not completed', httpStatus.BAD_REQUEST);
 };
 
-/**
- * Shared finalization logic for both synchronous verification and async cron job
- */
 const finalizeOrder = async (order: any, transactionId: string) => {
-  // 1. Atomic Idempotency Check
-  // We only proceed if the status is currently 'pending'. This prevents race conditions between Cron and Manual verify.
   const updatedOrder = await Order.findOneAndUpdate(
     { _id: order._id, paymentStatus: 'pending' },
     {
       $set: {
         paymentStatus: 'paid',
-        transactionId: transactionId
-      }
+        transactionId,
+      },
     },
     { new: true }
   );
 
-  if (!updatedOrder) {
-    // Order was already processed by another process (e.g., cron or concurrent request)
-    return;
+  if (!updatedOrder) return;
+
+  const purchasedBookIds = new Set<string>();
+  const purchasedEbookIds = new Set<string>();
+
+  for (const item of updatedOrder.items as any[]) {
+    const productType = getOrderItemProductType(item);
+    if (productType === 'ebook' && item.ebook) {
+      purchasedEbookIds.add(item.ebook.toString());
+    } else if (item.book) {
+      purchasedBookIds.add(item.book.toString());
+    }
   }
 
-  // 6. Handling the Ghost Cart (Data Integrity) explicitly without orderType switch
-  const purchasedBookIds = new Set(order.items.map((item: any) => item.book.toString()));
-
-  // We fetch and update the cart manually instead of empty to preserve ghost items natively everywhere
-  const cart = await Cart.findOne({ user: order.userId }).populate('items.book');
+  const cart = await Cart.findOne({ user: updatedOrder.userId });
   if (cart) {
-    cart.items = cart.items.filter((item: any) => item.book && !purchasedBookIds.has(item.book._id.toString()));
+    const populatedCart = await CartService.populateCartProducts(cart);
+    populatedCart.items = populatedCart.items.filter((item: any) => {
+      const productType = CartService.getCartItemProductType(item);
+      const productId = CartService.getCartItemProductId(item);
 
-    // Recalc Total
-    let total = 0;
-    cart.items.forEach((item: any) => {
-      if (item.book) {
-        total += item.book.price * item.quantity;
-      }
+      if (!productId) return false;
+      if (productType === 'ebook') return !purchasedEbookIds.has(productId);
+      return !purchasedBookIds.has(productId);
     });
-    cart.totalPrice = total;
-    await cart.save();
+    await CartService.recalculateCart(populatedCart);
   }
 
-  // 7. Increment Book saleCount
-  for (const item of order.items) {
-    await Book.findByIdAndUpdate(item.book, { $inc: { saleCount: item.quantity } });
+  for (const item of updatedOrder.items as any[]) {
+    const productType = getOrderItemProductType(item);
+    if (productType === 'ebook' && item.ebook) {
+      await Ebook.findByIdAndUpdate(item.ebook, { $inc: { saleCount: item.quantity } });
+    } else if (item.book) {
+      await Book.findByIdAndUpdate(item.book, { $inc: { saleCount: item.quantity } });
+    }
   }
-  // 8. Increment Coupon usage if applied
-  if (order.appliedCoupon) {
-    await Coupon.findByIdAndUpdate(order.appliedCoupon, { $inc: { usedCount: 1 } });
+
+  if (updatedOrder.appliedCoupon) {
+    await Coupon.findByIdAndUpdate(updatedOrder.appliedCoupon, { $inc: { usedCount: 1 } });
   }
 };
 
 const getMyOrders = async (userId: string) => {
-  return await Order.find({ userId }).populate('items.book').sort({ createdAt: -1 });
+  return await Order.find({ userId })
+    .populate('items.book')
+    .populate('items.ebook')
+    .sort({ createdAt: -1 });
 };
 
 const getOrderById = async (userId: string, orderId: string) => {
-  const order = await Order.findOne({ _id: orderId, userId }).populate('items.book');
+  const order = await Order.findOne({ _id: orderId, userId })
+    .populate('items.book')
+    .populate('items.ebook');
   if (!order) throw new AppError('Order not found', httpStatus.NOT_FOUND);
   return order;
 };
@@ -374,7 +536,7 @@ const deleteOrder = async (orderId: string) => {
 export const OrderService = {
   createPayPalOrder,
   verifyPayment,
-  finalizeOrder, // exported for cron job
+  finalizeOrder,
   verifyWebhookSignature,
   getMyOrders,
   getOrderById,

@@ -1,8 +1,11 @@
 import { Types } from 'mongoose';
 
+export type TCartProductType = 'book' | 'ebook';
 
 export interface ICartItem {
-    book: Types.ObjectId;
+    productType: TCartProductType;
+    book?: Types.ObjectId;
+    ebook?: Types.ObjectId;
     quantity: number;
 }
 

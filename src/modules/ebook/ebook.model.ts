@@ -43,9 +43,24 @@ const ebookSchema = new Schema<IEbook>(
       ref: "Ecategory", // Matches your exact model registration name
       required: true,
     },
+    price: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
     isPremium: { 
       type: Boolean, 
       default: false 
+    },
+    status: {
+      type: String,
+      enum: ["active", "inactive"],
+      default: "active",
+    },
+    saleCount: {
+      type: Number,
+      default: 0,
     },
     downloadCount: { 
       type: Number, 

@@ -39,10 +39,14 @@ const createEbookValidationSchema = z.object({
         message: "Invalid MongoDB Category ObjectId",
       }),
 
+    price: z.coerce.number().min(0, "Price cannot be negative").default(0),
+
     isPremium: z
       .union([z.boolean(), z.string()])
       .transform((val) => val === "true" || val === true)
       .optional(),
+
+    status: z.enum(["active", "inactive"]).optional(),
   }),
   files: z.object({
     coverImage: z.array(z.any()).min(1, "Cover image file is required"),
@@ -68,10 +72,12 @@ const updateEbookValidationSchema = z.object({
         message: "Invalid MongoDB Category ObjectId",
       })
       .optional(),
+    price: z.coerce.number().min(0, "Price cannot be negative").optional(),
     isPremium: z
       .union([z.boolean(), z.string()])
       .transform((val) => val === "true" || val === true)
       .optional(),
+    status: z.enum(["active", "inactive"]).optional(),
   }),
   files: z
     .object({

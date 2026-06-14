@@ -3,12 +3,20 @@ import { z } from 'zod';
 const createCheckoutSessionSchema = z.object({
   body: z.object({
     bookId: z.string().optional(),
+    ebookId: z.string().optional(),
     quantity: z.number().int().min(1).optional(),
     items: z.array(z.object({
-      bookId: z.string(),
+      bookId: z.string().optional(),
+      ebookId: z.string().optional(),
       quantity: z.number().int().min(1).default(1)
+    }).refine(data => data.bookId || data.ebookId, {
+      message: "Each item must include either bookId or ebookId"
+    }).refine(data => !(data.bookId && data.ebookId), {
+      message: "Each item can include only one of bookId or ebookId"
     })).optional(),
     couponCode: z.string().optional(),
+  }).refine(data => !(data.bookId && data.ebookId), {
+    message: "Provide only one of bookId or ebookId"
   }),
 });
 

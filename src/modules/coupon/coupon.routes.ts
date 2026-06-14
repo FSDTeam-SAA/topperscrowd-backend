@@ -70,6 +70,7 @@ router.post(
   '/apply',
   // #swagger.tags = ['Coupons']
   // #swagger.summary = 'Apply a coupon code and calculate the discount'
+  // #swagger.description = 'Calculates coupon discount for direct bookId, direct ebookId, mixed items, or the current cart when only couponCode is sent.'
   // #swagger.security = [{ "bearerAuth": [] }]
   /* #swagger.requestBody = {
     required: true,
@@ -81,6 +82,7 @@ router.post(
           properties: {
             couponCode: { type: "string", example: "SAVE20" },
             bookId: { type: "string", example: "64f1a2b3c4d5e6f7a8b9c0d1" },
+            ebookId: { type: "string", example: "64f1a2b3c4d5e6f7a8b9c0d2" },
             quantity: { type: "integer", example: 1 },
             items: {
               type: "array",
@@ -88,6 +90,7 @@ router.post(
                 type: "object",
                 properties: {
                   bookId: { type: "string" },
+                  ebookId: { type: "string" },
                   quantity: { type: "integer", example: 1 }
                 }
               }

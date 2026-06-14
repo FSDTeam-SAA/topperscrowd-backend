@@ -13,7 +13,7 @@ router.get(
     "/get-all",
     // #swagger.tags = ['Ebooks']
     // #swagger.summary = 'Get all ebooks'
-    // #swagger.description = 'Retrieve all ebooks, optionally filtered by ebook category or format.'
+    // #swagger.description = 'Retrieve all ebooks, optionally filtered by ebook category, format, or status. Premium ebook file URLs are hidden from public catalog responses.'
     // #swagger.security = []
     /* #swagger.parameters['category'] = {
       in: 'query',
@@ -26,6 +26,12 @@ router.get(
       enum: ['PDF', 'EPUB'],
       description: 'Filter ebooks by document format'
     } */
+    /* #swagger.parameters['status'] = {
+      in: 'query',
+      type: 'string',
+      enum: ['active', 'inactive', 'all'],
+      description: 'Filter ebooks by commerce availability status'
+    } */
     /* #swagger.responses[200] = {
       description: 'Ebooks retrieved successfully'
     } */
@@ -37,7 +43,7 @@ router.get(
     "/:ebookId",
     // #swagger.tags = ['Ebooks']
     // #swagger.summary = 'Get a single ebook by ID (public)'
-    // #swagger.description = 'Retrieve one ebook with populated category details.'
+    // #swagger.description = 'Retrieve one ebook with populated category details. Premium ebook file URLs are hidden until purchased.'
     // #swagger.security = []
     /* #swagger.parameters['ebookId'] = {
       in: 'path',
@@ -75,7 +81,9 @@ router.post(
               author: { type: "string", example: "Robert C. Martin" },
               formatType: { type: "string", enum: ["PDF", "EPUB"], example: "PDF" },
               category: { type: "string", example: "64f1a2b3c4d5e6f7a8b9c0d1" },
+              price: { type: "number", example: 12.99 },
               isPremium: { type: "string", enum: ["true", "false"], example: "false" },
+              status: { type: "string", enum: ["active", "inactive"], example: "active" },
               coverImage: { type: "string", format: "binary" },
               file: { type: "string", format: "binary" }
             }
@@ -130,7 +138,9 @@ router.patch(
               author: { type: "string" },
               formatType: { type: "string", enum: ["PDF", "EPUB"] },
               category: { type: "string" },
+              price: { type: "number" },
               isPremium: { type: "string", enum: ["true", "false"] },
+              status: { type: "string", enum: ["active", "inactive"] },
               coverImage: { type: "string", format: "binary" },
               file: { type: "string", format: "binary" }
             }
@@ -195,8 +205,8 @@ router.delete(
 router.patch(
     "/:ebookId/download",
     // #swagger.tags = ['Ebooks']
-    // #swagger.summary = 'Track ebook download (Authenticated users)'
-    // #swagger.description = 'Increment the ebook download counter.'
+    // #swagger.summary = 'Download/access an ebook after ownership check'
+    // #swagger.description = 'Requires purchase for premium ebooks. Increments the download counter and returns the ebook with file URL when access is allowed.'
     // #swagger.security = [{ "bearerAuth": [] }]
     /* #swagger.parameters['ebookId'] = {
       in: 'path',
