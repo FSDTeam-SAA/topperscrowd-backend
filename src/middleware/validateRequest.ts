@@ -2,6 +2,24 @@ import { ZodSchema, ZodError } from "zod";
 import { RequestHandler, NextFunction, Request, Response } from "express";
 import AppError from "../errors/AppError";
 import { fileCleanup } from "../utils/fileCleanup";
+import { deleteFromCloudinary } from "../utils/cloudinary";
+import logger from "../logger";
+
+const cleanupStreamedCloudinaryAssets = async (req: Request) => {
+  const assets = (req as any).uploadedCloudinaryAssets;
+  if (!Array.isArray(assets) || assets.length === 0) return;
+
+  await Promise.allSettled(
+    assets.map((asset) =>
+      deleteFromCloudinary(asset.public_id, asset.resource_type).catch((error) => {
+        logger.error(
+          { error, publicId: asset.public_id },
+          "Failed to clean streamed Cloudinary asset after validation error",
+        );
+      }),
+    ),
+  );
+};
 
 export const validateRequest = (schema: ZodSchema): RequestHandler => {
   return async (req: Request, _res: Response, next: NextFunction) => {
@@ -13,7 +31,9 @@ export const validateRequest = (schema: ZodSchema): RequestHandler => {
         (Array.isArray(req.files) && req.files.length > 0) ||
         (req.files &&
           typeof req.files === "object" &&
-          Object.keys(req.files).length > 0);
+          Object.keys(req.files).length > 0) ||
+        ((req as any).streamedUploads &&
+          Object.keys((req as any).streamedUploads).length > 0);
 
       // If BOTH body and image are missing
       if (!hasBody && !hasFile) {
@@ -35,6 +55,7 @@ export const validateRequest = (schema: ZodSchema): RequestHandler => {
           cookies: req.cookies,
           file: req.file,
           files: req.files,
+          streamedUploads: (req as any).streamedUploads,
         });
       }
 
@@ -42,6 +63,7 @@ export const validateRequest = (schema: ZodSchema): RequestHandler => {
     } catch (err: any) {
       // Automatic cleanup for local files on validation error
       fileCleanup(req);
+      await cleanupStreamedCloudinaryAssets(req);
 
       if (err instanceof ZodError) {
         const errors = err.issues.map((issue) => ({

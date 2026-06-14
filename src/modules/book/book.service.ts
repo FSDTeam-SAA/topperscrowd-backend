@@ -1,6 +1,9 @@
 import mongoose from "mongoose";
 import AppError from "../../errors/AppError";
-import { deleteFromCloudinary, uploadToCloudinary } from "../../utils/cloudinary";
+import {
+  CloudinaryUploadedAsset,
+  deleteFromCloudinary,
+} from "../../utils/cloudinary";
 import { paginationHelper } from "../../utils/pafinationHelper";
 import { IBook } from "./book.interface";
 import Book from "./book.model";
@@ -9,10 +12,7 @@ import { transformBookResponse } from "./book.utils";
 import BookCategory from "../bookCategory/bookCategory.model";
 import logger from "../../logger";
 
-type UploadedAsset = {
-  public_id: string;
-  resource_type: "image" | "video" | "raw";
-};
+type UploadedAsset = Pick<CloudinaryUploadedAsset, "public_id" | "resource_type">;
 
 const cleanupUploadedAssets = async (assets: UploadedAsset[]) => {
   await Promise.allSettled(
@@ -30,35 +30,32 @@ const cleanupUploadedAssets = async (assets: UploadedAsset[]) => {
 //create a new book
 const createBook = async (req: any) => {
   const payload: IBook = req.body;
-  const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-  const uploadedAssets: UploadedAsset[] = [];
-
-  if (!files?.audio?.[0]) {
-    throw new AppError("Audio file is required", 400);
-  }
-
-  const genreExists = await BookCategory.exists({ _id: payload.genre });
-  if (!genreExists) {
-    throw new AppError("This genre does not exist", 400);
-  }
+  const streamedUploads = req.streamedUploads as {
+    image?: CloudinaryUploadedAsset;
+    audio?: CloudinaryUploadedAsset;
+  };
+  const uploadedAssets: UploadedAsset[] = req.uploadedCloudinaryAssets || [];
 
   try {
-    if (files?.image?.[0]) {
-      const imageAsset = await uploadToCloudinary(files.image[0].path, "books");
-      uploadedAssets.push(imageAsset);
+    if (!streamedUploads?.audio) {
+      throw new AppError("Audio file is required", 400);
+    }
 
+    const genreExists = await BookCategory.exists({ _id: payload.genre });
+    if (!genreExists) {
+      throw new AppError("This genre does not exist", 400);
+    }
+
+    if (streamedUploads.image) {
       payload.image = {
-        public_id: imageAsset.public_id,
-        secure_url: imageAsset.secure_url,
+        public_id: streamedUploads.image.public_id,
+        secure_url: streamedUploads.image.secure_url,
       };
     }
 
-    const audioAsset = await uploadToCloudinary(files.audio[0].path, "books");
-    uploadedAssets.push(audioAsset);
-
     payload.audio = {
-      public_id: audioAsset.public_id,
-      secure_url: audioAsset.secure_url,
+      public_id: streamedUploads.audio.public_id,
+      secure_url: streamedUploads.audio.secure_url,
     };
 
     const result = await Book.create(payload);
@@ -256,31 +253,31 @@ const getBooksByCategory = async (req: any) => {
 //update a book by id
 const updateBook = async (req: any) => {
   const { bookId: id } = req.params;
-  if (!mongoose.isValidObjectId(id)) throw new AppError("Invalid book id", 400);
   const payload: Partial<IBook> = req.body;
-
-  const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-  const existingBook = await Book.findById(id);
-  if (!existingBook) throw new AppError("Book not found", 404);
-
-  if (payload.genre) {
-    const genreExists = await BookCategory.exists({ _id: payload.genre });
-    if (!genreExists) {
-      throw new AppError("This genre does not exist", 400);
-    }
-  }
-
-  const uploadedAssets: UploadedAsset[] = [];
+  const streamedUploads = req.streamedUploads as {
+    image?: CloudinaryUploadedAsset;
+    audio?: CloudinaryUploadedAsset;
+  };
+  const uploadedAssets: UploadedAsset[] = req.uploadedCloudinaryAssets || [];
   const replacedAssets: UploadedAsset[] = [];
 
   try {
-    if (files?.image?.[0]) {
-      const imageAsset = await uploadToCloudinary(files.image[0].path, "books");
-      uploadedAssets.push(imageAsset);
+    if (!mongoose.isValidObjectId(id)) throw new AppError("Invalid book id", 400);
 
+    const existingBook = await Book.findById(id);
+    if (!existingBook) throw new AppError("Book not found", 404);
+
+    if (payload.genre) {
+      const genreExists = await BookCategory.exists({ _id: payload.genre });
+      if (!genreExists) {
+        throw new AppError("This genre does not exist", 400);
+      }
+    }
+
+    if (streamedUploads?.image) {
       payload.image = {
-        public_id: imageAsset.public_id,
-        secure_url: imageAsset.secure_url,
+        public_id: streamedUploads.image.public_id,
+        secure_url: streamedUploads.image.secure_url,
       };
 
       if (existingBook.image?.public_id) {
@@ -291,13 +288,10 @@ const updateBook = async (req: any) => {
       }
     }
 
-    if (files?.audio?.[0]) {
-      const audioAsset = await uploadToCloudinary(files.audio[0].path, "books");
-      uploadedAssets.push(audioAsset);
-
+    if (streamedUploads?.audio) {
       payload.audio = {
-        public_id: audioAsset.public_id,
-        secure_url: audioAsset.secure_url,
+        public_id: streamedUploads.audio.public_id,
+        secure_url: streamedUploads.audio.secure_url,
       };
 
       if (existingBook.audio?.public_id) {
