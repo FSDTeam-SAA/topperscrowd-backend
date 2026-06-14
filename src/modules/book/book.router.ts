@@ -2,9 +2,9 @@ import { Router } from "express";
 import { bookController } from "./book.controller";
 import { BookValidation } from "./book.validation";
 import { validateRequest } from "../../middleware/validateRequest";
-import { upload } from "../../middleware/multer.middleware";
 import auth from "../../middleware/auth";
 import { USER_ROLE } from "../user/user.constant";
+import { streamBookUpload } from "../../middleware/bookUploadStream.middleware";
 
 const router = Router();
 
@@ -37,10 +37,7 @@ router.post(
     }
   } */
   auth(USER_ROLE.ADMIN),
-  upload.fields([
-    { name: "image", maxCount: 1 },
-    { name: "audio", maxCount: 1 },
-  ]),
+  streamBookUpload,
   validateRequest(BookValidation.createBookSchema),
   bookController.createBook
 );
@@ -96,10 +93,7 @@ router.patch(
     }
   } */
   auth(USER_ROLE.ADMIN),
-  upload.fields([
-    { name: "image", maxCount: 1 },
-    { name: "audio", maxCount: 1 },
-  ]),
+  streamBookUpload,
   validateRequest(BookValidation.updateBookSchema),
   bookController.updateBook
 );

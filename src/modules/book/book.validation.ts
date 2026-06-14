@@ -1,6 +1,12 @@
 import mongoose from "mongoose";
 import { z } from "zod";
 
+const cloudinaryAssetSchema = z.object({
+  public_id: z.string().min(1),
+  secure_url: z.string().url(),
+  resource_type: z.enum(["image", "video", "raw"]),
+});
+
 // Validation schema for creating a book
 const createBookSchema = z.object({
   body: z.object({
@@ -15,9 +21,9 @@ const createBookSchema = z.object({
     publisher: z.string().min(1, "Publisher is required"),
     publicationYear: z.coerce.number().min(1, "Publication Year is required"),
   }),
-  files: z.object({
-    image: z.array(z.any()).optional(),
-    audio: z.array(z.any()).min(1, "Audio is required"),
+  streamedUploads: z.object({
+    image: cloudinaryAssetSchema.optional(),
+    audio: cloudinaryAssetSchema,
   }),
 });
 
@@ -34,10 +40,10 @@ const updateBookSchema = z.object({
     language: z.string().min(1).optional(),
     publisher: z.string().min(1).optional(),
   }),
-  files: z.object({
-    image: z.array(z.any()).optional(),
-    audio: z.array(z.any()).optional(),
-  })
+  streamedUploads: z.object({
+    image: cloudinaryAssetSchema.optional(),
+    audio: cloudinaryAssetSchema.optional(),
+  }).optional()
 })
 
 export const BookValidation = {
