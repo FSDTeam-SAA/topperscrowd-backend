@@ -75,6 +75,5 @@ const ebookSchema = new Schema<IEbook>(
 
 // High-Performance Optimization: Compound index for quick frontend layout segregation
 ebookSchema.index({ category: 1, formatType: 1 });
-ebookSchema.index({ slug: 1 });
 
 export const Ebook = model<IEbook>("Ebook", ebookSchema);

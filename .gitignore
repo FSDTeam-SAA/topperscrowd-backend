@@ -4,6 +4,7 @@ dist
 .qodo
 .idea
 .vscode
+.env
 
 
 

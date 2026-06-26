@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "swagger": "ts-node src/swagger.ts",
-    "dev": "npm run swagger && ts-node-dev --respawn --transpile-only src/server.ts",
+    "dev": "npm run swagger && ts-node-dev --respawn --transpile-only --poll --ignore-watch dist --ignore-watch uploads --ignore-watch swagger_output.json src/server.ts",
     "start": "node ./dist/server.js",
     "build": "npm run swagger && tsc",
     "lint": "eslint src/**/*.ts",

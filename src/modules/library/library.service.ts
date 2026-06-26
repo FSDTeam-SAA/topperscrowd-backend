@@ -151,36 +151,66 @@ const getMyBooks = async (userId: string, user: any, page: string, limit: string
 const getMyEbooks = async (userId: string, user: any, page: string, limit: string) => {
   const { skip, limit: perPage, page: currentPage } = paginationHelper(page, limit);
 
-  const purchasedEbookIds = await Order.find({ 
-    userId: new mongoose.Types.ObjectId(userId), 
-    paymentStatus: 'paid' 
-  }).distinct('items.ebook');
+  const orders = await Order.find({
+    userId: new mongoose.Types.ObjectId(userId),
+    paymentStatus: 'paid',
+    'items.ebook': { $exists: true, $ne: null },
+  })
+    .select('items createdAt')
+    .sort({ createdAt: -1 })
+    .lean();
 
-  const cleanPurchasedEbookIds = (purchasedEbookIds as any).filter(Boolean);
+  const purchaseMap = new Map<string, any>();
 
-  const [ebooks, total] = await Promise.all([
-    Ebook.find({ _id: { $in: cleanPurchasedEbookIds } })
-      .skip(skip)
-      .limit(perPage)
-      .sort({ createdAt: -1 })
-      .populate('category', 'name slug')
-      .lean(),
-    Ebook.countDocuments({ _id: { $in: cleanPurchasedEbookIds } })
-  ]);
+  for (const order of orders) {
+    for (const item of order.items) {
+      if (!item.ebook) continue;
+
+      const ebookId = item.ebook.toString();
+      if (purchaseMap.has(ebookId)) continue;
+
+      purchaseMap.set(ebookId, {
+        orderId: order._id,
+        purchasedAt: order.createdAt,
+        price: item.price,
+        quantity: item.quantity,
+      });
+    }
+  }
+
+  const purchasedEbookIds = Array.from(purchaseMap.keys());
+  const paginatedEbookIds = purchasedEbookIds.slice(skip, skip + perPage);
+
+  const ebooks = await Ebook.find({ _id: { $in: paginatedEbookIds } })
+    .populate('category', 'name slug')
+    .lean();
 
   const transformedEbooks = transformEbookResponse(
     ebooks,
     user,
-    cleanPurchasedEbookIds.map((id: any) => id.toString())
-  );
+    purchasedEbookIds
+  ) as any[];
+
+  const ebookById = new Map(transformedEbooks.map((ebook: any) => [ebook._id.toString(), ebook]));
+  const data = paginatedEbookIds
+    .map((ebookId) => {
+      const ebook = ebookById.get(ebookId);
+      if (!ebook) return null;
+
+      return {
+        ...ebook,
+        purchaseInfo: purchaseMap.get(ebookId),
+      };
+    })
+    .filter(Boolean);
 
   return {
-    data: transformedEbooks,
+    data,
     meta: {
-      total,
+      total: purchasedEbookIds.length,
       page: currentPage,
       limit: perPage,
-      totalPage: Math.ceil(total / perPage),
+      totalPage: Math.ceil(purchasedEbookIds.length / perPage),
     },
   };
 };
