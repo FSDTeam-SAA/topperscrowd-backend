@@ -5,7 +5,7 @@ import sendResponse from "../../utils/sendResponse";
 import { ecategoryService } from "./ecategory.service";
 
 const createEcategory = catchAsync(async (req: Request, res: Response) => {
-  const result = await ecategoryService.createEcategoryIntoDB(req.body);
+  const result = await ecategoryService.createEcategoryIntoDB(req);
 
   sendResponse(res, {
     statusCode: StatusCodes.CREATED,

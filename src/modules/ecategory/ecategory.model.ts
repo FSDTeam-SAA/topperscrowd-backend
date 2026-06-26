@@ -7,6 +7,10 @@ const categorySchema = new Schema<IEcategory>(
     name: { type: String, required: true, trim: true, unique: true },
     slug: { type: String, required: true, unique: true, lowercase: true },
     description: { type: String },
+    image: {
+      public_id: String,
+      url: String,
+    },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true, versionKey: false }

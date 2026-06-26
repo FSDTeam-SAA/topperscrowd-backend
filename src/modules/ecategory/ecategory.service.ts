@@ -1,19 +1,52 @@
 import { StatusCodes } from "http-status-codes";
 import AppError from "../../errors/AppError";
+import { fileCleanup } from "../../utils/fileCleanup";
+import { deleteFromCloudinary, uploadToCloudinary } from "../../utils/cloudinary";
 import { IEcategory } from "./ecategory.interface";
 import { Category } from "./ecategory.model";
 
-const createEcategoryIntoDB = async (payload: IEcategory): Promise<IEcategory> => {
+const createEcategoryIntoDB = async (req: any): Promise<IEcategory> => {
+  const payload: IEcategory = { ...req.body };
+  delete (payload as any).image;
+  const image = req.file;
+
   const existingCategory = await Category.findOne({
     $or: [{ name: payload.name }, { slug: payload.slug }],
   });
 
   if (existingCategory) {
+    fileCleanup(req);
     throw new AppError("Category name or slug already exists", StatusCodes.CONFLICT);
   }
 
-  const result = await Category.create(payload);
-  return result;
+  let uploadedImage:
+    | {
+        public_id: string;
+        secure_url: string;
+        resource_type: "image" | "video" | "raw";
+      }
+    | undefined;
+
+  try {
+    if (image) {
+      uploadedImage = await uploadToCloudinary(image.path, "ecategories");
+      payload.image = {
+        public_id: uploadedImage.public_id,
+        url: uploadedImage.secure_url,
+      };
+    }
+
+    const result = await Category.create(payload);
+    return result;
+  } catch (error) {
+    if (uploadedImage?.public_id) {
+      await deleteFromCloudinary(uploadedImage.public_id, uploadedImage.resource_type).catch(
+        () => undefined,
+      );
+    }
+
+    throw error;
+  }
 };
 
 const getAllEcategoriesFromDB = async (): Promise<IEcategory[]> => {

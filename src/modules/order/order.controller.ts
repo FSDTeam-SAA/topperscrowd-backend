@@ -44,6 +44,30 @@ const getMyOrders = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getMyPaymentHistory = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user.id;
+  const { data, meta } = await OrderService.getMyPaymentHistory(userId, req.query);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Payment history retrieved successfully',
+    data,
+    meta,
+  });
+});
+
+const getAllOrdersForAdmin = catchAsync(async (req: Request, res: Response) => {
+  const result = await OrderService.getAllOrdersForAdmin(req.query);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'All orders retrieved successfully for admin',
+    data: result,
+  });
+});
+
 const getOrderById = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user.id;
   const { orderId } = req.params;
@@ -116,6 +140,8 @@ export const OrderController = {
   verifyPayment,
   handlePayPalWebhook,
   getMyOrders,
+  getMyPaymentHistory,
+  getAllOrdersForAdmin,
   getOrderById,
   updateOrder,
   deleteOrder,

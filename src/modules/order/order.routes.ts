@@ -87,6 +87,64 @@ router.get(
 );
 
 router.get(
+  '/my-payment-history',
+  // #swagger.tags = ['Orders']
+  // #swagger.summary = 'Get my payment history'
+  // #swagger.description = 'Returns current user payment history with paid, pending/processing, and cancelled statuses.'
+  // #swagger.security = [{ "bearerAuth": [] }]
+  /* #swagger.parameters['paymentStatus'] = {
+    in: 'query',
+    required: false,
+    type: 'string',
+    enum: ['pending', 'paid', 'cancelled'],
+    description: 'Filter payment history by status'
+  } */
+  /* #swagger.parameters['page'] = {
+    in: 'query',
+    required: false,
+    type: 'string',
+    description: 'Page number'
+  } */
+  /* #swagger.parameters['limit'] = {
+    in: 'query',
+    required: false,
+    type: 'string',
+    description: 'Number of payment records per page'
+  } */
+  auth(USER_ROLE.USER),
+  OrderController.getMyPaymentHistory
+);
+
+router.get(
+  '/admin/all-orders',
+  // #swagger.tags = ['Orders']
+  // #swagger.summary = 'Get all orders for admin'
+  // #swagger.description = 'Admin can retrieve all orders or filter by paymentStatus: paid, pending, cancelled.'
+  // #swagger.security = [{ "bearerAuth": [] }]
+  /* #swagger.parameters['paymentStatus'] = {
+    in: 'query',
+    required: false,
+    type: 'string',
+    enum: ['pending', 'paid', 'cancelled'],
+    description: 'Filter orders by payment status'
+  } */
+  /* #swagger.parameters['page'] = {
+    in: 'query',
+    required: false,
+    type: 'string',
+    description: 'Page number'
+  } */
+  /* #swagger.parameters['limit'] = {
+    in: 'query',
+    required: false,
+    type: 'string',
+    description: 'Number of orders per page'
+  } */
+  auth(USER_ROLE.ADMIN),
+  OrderController.getAllOrdersForAdmin
+);
+
+router.get(
   '/:orderId',
   // #swagger.tags = ['Orders']
   // #swagger.summary = 'Get order by ID'
