@@ -5,6 +5,7 @@ import { ecategoryController } from "./ecategory.controller";
 import { validateRequest } from "../../middleware/validateRequest";
 import auth from "../../middleware/auth";
 import { USER_ROLE } from "../user/user.constant";
+import { upload } from "../../middleware/multer.middleware";
 
 const router = express.Router();
 
@@ -29,7 +30,7 @@ router.post(
     /* #swagger.requestBody = {
       required: true,
       content: {
-        "application/json": {
+        "multipart/form-data": {
           schema: {
             type: "object",
             required: ["name", "slug"],
@@ -37,7 +38,8 @@ router.post(
               name: { type: "string", example: "Programming" },
               slug: { type: "string", example: "programming" },
               description: { type: "string", example: "Technical ebooks and programming guides" },
-              isActive: { type: "boolean", example: true }
+              isActive: { type: "boolean", example: true },
+              image: { type: "string", format: "binary" }
             }
           }
         }
@@ -58,8 +60,9 @@ router.post(
     /* #swagger.responses[409] = {
       description: 'Category name or slug already exists'
     } */
-    validateRequest(ecategoryValidation.createEcategoryValidationSchema),
     auth(USER_ROLE.ADMIN),
+    upload.single("image"),
+    validateRequest(ecategoryValidation.createEcategoryValidationSchema),
     ecategoryController.createEcategory
 );
 

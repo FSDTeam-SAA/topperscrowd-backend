@@ -3,6 +3,7 @@ import httpStatus from 'http-status';
 import mongoose from 'mongoose';
 import config from '../../config';
 import AppError from '../../errors/AppError';
+import { paginationHelper } from '../../utils/pafinationHelper';
 import Book from '../book/book.model';
 import { Cart } from '../cart/cart.model';
 import { CartService } from '../cart/cart.service';
@@ -27,6 +28,10 @@ type TOwnershipCheck = {
   bookIdsToCheck: string[];
   ebookIdsToCheck: string[];
 };
+
+type TOrderPaymentStatus = 'pending' | 'paid' | 'cancelled';
+
+const orderPaymentStatuses: TOrderPaymentStatus[] = ['pending', 'paid', 'cancelled'];
 
 const generateAccessToken = async () => {
   const { clientId, clientSecret, mode } = config.paypal;
@@ -476,6 +481,111 @@ const getMyOrders = async (userId: string) => {
     .sort({ createdAt: -1 });
 };
 
+const getMyPaymentHistory = async (
+  userId: string,
+  query: {
+    paymentStatus?: string;
+    page?: string;
+    limit?: string;
+  }
+) => {
+  const { paymentStatus, page = '1', limit = '10' } = query;
+  const { skip, limit: perPage, page: currentPage } = paginationHelper(page, limit);
+
+  const filter: { userId: mongoose.Types.ObjectId; paymentStatus?: TOrderPaymentStatus } = {
+    userId: new mongoose.Types.ObjectId(userId),
+  };
+
+  if (paymentStatus) {
+    if (!orderPaymentStatuses.includes(paymentStatus as TOrderPaymentStatus)) {
+      throw new AppError('Invalid paymentStatus. Must be pending, paid, or cancelled', httpStatus.BAD_REQUEST);
+    }
+
+    filter.paymentStatus = paymentStatus as TOrderPaymentStatus;
+  }
+
+  const [orders, total] = await Promise.all([
+    Order.find(filter)
+      .populate('items.book', 'title slug price image')
+      .populate('items.ebook', 'title slug price coverImage formatType')
+      .populate('appliedCoupon')
+      .skip(skip)
+      .limit(perPage)
+      .sort({ createdAt: -1 })
+      .lean(),
+    Order.countDocuments(filter),
+  ]);
+
+  const data = orders.map((order) => ({
+    orderId: order._id,
+    paymentStatus: order.paymentStatus,
+    statusLabel:
+      order.paymentStatus === 'paid'
+        ? 'Paid'
+        : order.paymentStatus === 'cancelled'
+          ? 'Cancelled'
+          : 'Processing',
+    totalAmount: order.totalAmount,
+    paypalOrderId: order.paypalOrderId,
+    transactionId: order.transactionId,
+    appliedCoupon: order.appliedCoupon,
+    paidAt: order.paymentStatus === 'paid' ? order.updatedAt : null,
+    createdAt: order.createdAt,
+    updatedAt: order.updatedAt,
+    items: order.items,
+  }));
+
+  return {
+    data,
+    meta: {
+      page: currentPage,
+      limit: perPage,
+      total,
+      totalPage: Math.ceil(total / perPage),
+    },
+  };
+};
+
+const getAllOrdersForAdmin = async (query: {
+  paymentStatus?: string;
+  page?: string;
+  limit?: string;
+}) => {
+  const { paymentStatus, page = '1', limit = '10' } = query;
+  const { skip, limit: perPage, page: currentPage } = paginationHelper(page, limit);
+
+  const filter: { paymentStatus?: TOrderPaymentStatus } = {};
+  if (paymentStatus) {
+    if (!orderPaymentStatuses.includes(paymentStatus as TOrderPaymentStatus)) {
+      throw new AppError('Invalid paymentStatus. Must be pending, paid, or cancelled', httpStatus.BAD_REQUEST);
+    }
+
+    filter.paymentStatus = paymentStatus as TOrderPaymentStatus;
+  }
+
+  const [data, total] = await Promise.all([
+    Order.find(filter)
+      .populate('userId', 'firstName lastName email phone image')
+      .populate('items.book')
+      .populate('items.ebook')
+      .populate('appliedCoupon')
+      .skip(skip)
+      .limit(perPage)
+      .sort({ createdAt: -1 }),
+    Order.countDocuments(filter),
+  ]);
+
+  return {
+    data,
+    meta: {
+      page: currentPage,
+      limit: perPage,
+      total,
+      totalPage: Math.ceil(total / perPage),
+    },
+  };
+};
+
 const getOrderById = async (userId: string, orderId: string) => {
   const order = await Order.findOne({ _id: orderId, userId })
     .populate('items.book')
@@ -539,6 +649,8 @@ export const OrderService = {
   finalizeOrder,
   verifyWebhookSignature,
   getMyOrders,
+  getMyPaymentHistory,
+  getAllOrdersForAdmin,
   getOrderById,
   updateOrder,
   deleteOrder,
